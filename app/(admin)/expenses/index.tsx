@@ -1,10 +1,11 @@
 // waygo-freight/app/(admin)/expenses/index.tsx
 import React, { useState, useCallback } from 'react';
 import { FlatList, View, Text, RefreshControl, Alert, TouchableOpacity } from 'react-native';
-import { styled } from 'nativewind';
+
 import { Stack, useRouter, useFocusEffect } from 'expo-router';
 import { useAuth } from '../../../state/authContext';
 import ScreenWrapper from '../../../components/ScreenWrapper';
+import { useTheme } from '../../../theme/ThemeContext';
 import Heading from '../../../components/typography/Heading';
 import { fetchAllExpensesForAdmin } from '../../../services/expenseService';
 import { ExpenseReport } from '../../../utils/types';
@@ -14,12 +15,109 @@ import LoadingSpinner from '../../../components/LoadingSpinner';
 import StatusBadge from '../../../components/StatusBadge';
 import Paragraph from '../../../components/typography/Paragraph';
 
-const StyledView = styled(View);
-const StyledTouchableOpacity = styled(TouchableOpacity);
-
 type StatusFilter = 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
 
+const useStyles = () => {
+    const { theme } = useTheme();
+    return {
+        screen: {
+            backgroundColor: theme.colors.background,
+        },
+        headerContainer: {
+            padding: 16,
+            backgroundColor: theme.colors.surface,
+            borderBottomWidth: 1,
+            borderBottomColor: theme.colors.border,
+        },
+        headerRow: {
+            flexDirection: 'row' as 'row',
+            justifyContent: 'space-between' as 'space-between',
+            marginBottom: 16,
+        },
+        tabsContainer: {
+            flexDirection: 'row' as 'row',
+            padding: 4,
+            backgroundColor: theme.colors.divider,
+            borderRadius: 8,
+        },
+        listItemContainer: {
+            flexDirection: 'row' as 'row',
+            alignItems: 'center' as 'center',
+            justifyContent: 'space-between' as 'space-between',
+            flex: 1,
+        },
+        listItemTextContainer: {
+            flex: 1,
+        },
+        listItemTitleRow: {
+            flexDirection: 'row' as 'row',
+            alignItems: 'center' as 'center',
+            marginBottom: 4,
+        },
+        listItemIcon: {
+            marginRight: 8,
+        },
+        listItemIconColor: theme.colors.textSecondary,
+        listItemChevronColor: theme.colors.placeholder,
+        listItemCategory: {
+            fontWeight: '500' as '500',
+            color: theme.colors.text,
+        },
+        listItemDetails: {
+            fontSize: 14,
+            color: theme.colors.textSecondary,
+        },
+        listItemAmountContainer: {
+            alignItems: 'flex-end' as 'flex-end',
+        },
+        listItemAmount: {
+            fontWeight: 'bold' as 'bold',
+            color: theme.colors.onSurface,
+        },
+        listItemStatusBadge: {
+            marginTop: 4,
+        },
+        listItemChevron: {
+            marginLeft: 8,
+        },
+        listContentContainer: {
+            padding: 16,
+        },
+        emptyListContainer: {
+            alignItems: 'center' as 'center',
+            justifyContent: 'center' as 'center',
+            padding: 32,
+        },
+        emptyListIcon: {
+            marginBottom: 8,
+        },
+        tabButton: {
+            flex: 1,
+            paddingVertical: 8,
+            borderRadius: 6,
+            alignItems: 'center' as 'center',
+        },
+        activeTabButton: {
+            backgroundColor: theme.colors.surface,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.1,
+            shadowRadius: 2,
+            elevation: 2,
+        },
+        tabButtonText: {
+            fontSize: 14,
+            fontWeight: '500' as '500',
+            color: theme.colors.textSecondary,
+        },
+        activeTabButtonText: {
+            color: theme.colors.onSurface,
+        },
+    };
+};
+
 export default function AdminExpensesScreen() {
+    const styles = useStyles();
     const router = useRouter();
     const { user: adminUser } = useAuth();
     const [expenses, setExpenses] = useState<ExpenseReport[]>([]);
@@ -58,21 +156,21 @@ export default function AdminExpensesScreen() {
 
     const renderExpenseItem = ({ item }: { item: ExpenseReport }) => (
         <ListItem onPress={() => handleExpensePress(item.id)}>
-            <View className="flex-row items-center justify-between flex-1">
-                <View className="flex-1">
-                    <View className="flex-row items-center mb-1">
-                        <DollarSign size={16} color="#4B5563" className="mr-2" />
-                        <Text className="font-medium text-gray-700">{item.category}</Text>
+            <View style={styles.listItemContainer}>
+                <View style={styles.listItemTextContainer}>
+                    <View style={styles.listItemTitleRow}>
+                        <DollarSign size={16} color={styles.listItemIconColor} style={styles.listItemIcon} />
+                        <Text style={styles.listItemCategory}>{item.category}</Text>
                     </View>
-                    <Text className="text-sm text-gray-500">
+                    <Text style={styles.listItemDetails}>
                         {item.driverName} • {new Date(item.date).toLocaleDateString()}
                     </Text>
                 </View>
-                <View className="items-end">
-                    <Text className="font-bold text-gray-900">${item.amount.toFixed(2)}</Text>
-                    <StatusBadge status={item.status} className="mt-1" />
+                <View style={styles.listItemAmountContainer}>
+                    <Text style={styles.listItemAmount}>${item.amount.toFixed(2)}</Text>
+                    <StatusBadge status={item.status} style={styles.listItemStatusBadge} />
                 </View>
-                <ChevronRight size={20} color="#9CA3AF" className="ml-2" />
+                <ChevronRight size={20} color={styles.listItemChevronColor} style={styles.listItemChevron} />
             </View>
         </ListItem>
     );
@@ -82,15 +180,15 @@ export default function AdminExpensesScreen() {
     }
 
     return (
-        <ScreenWrapper className="bg-gray-50">
+        <ScreenWrapper style={styles.screen}>
             <Stack.Screen options={{ title: 'Expense Approvals' }} />
             
-            <View className="p-4 bg-white border-b border-gray-200">
-                <View className="flex-row justify-between mb-4">
+            <View style={styles.headerContainer}>
+                <View style={styles.headerRow}>
                     <Heading>Expense Reports</Heading>
                 </View>
                 
-                <View className="flex-row p-1 bg-gray-100 rounded-lg">
+                <View style={styles.tabsContainer}>
                     {['PENDING_APPROVAL', 'APPROVED', 'REJECTED'].map((tab) => (
                         <TabButton
                             key={tab}
@@ -106,13 +204,13 @@ export default function AdminExpensesScreen() {
                 data={expenses}
                 renderItem={renderExpenseItem}
                 keyExtractor={(item) => item.id}
-                contentContainerStyle={{ padding: 16 }}
+                contentContainerStyle={styles.listContentContainer}
                 refreshControl={
                     <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
                 }
                 ListEmptyComponent={
-                    <View className="items-center justify-center p-8">
-                        <DollarSign size={32} color="#9CA3AF" className="mb-2" />
+                    <View style={styles.emptyListContainer}>
+                        <DollarSign size={32} color={styles.listItemChevronColor} style={styles.emptyListIcon} />
                         <Paragraph>No expenses found</Paragraph>
                     </View>
                 }
@@ -121,13 +219,16 @@ export default function AdminExpensesScreen() {
     );
 }
 
-const TabButton = ({ title, isActive, onPress }: { title: string, isActive: boolean, onPress: () => void }) => (
-    <TouchableOpacity
-        onPress={onPress}
-        className={`flex-1 py-2 rounded-md items-center ${isActive ? 'bg-white shadow-sm' : ''}`}
-    >
-        <Text className={`text-sm font-medium ${isActive ? 'text-gray-900' : 'text-gray-500'}`}>
-            {title}
-        </Text>
-    </TouchableOpacity>
-);
+const TabButton = ({ title, isActive, onPress }: { title: string, isActive: boolean, onPress: () => void }) => {
+    const styles = useStyles();
+    return (
+        <TouchableOpacity
+            onPress={onPress}
+            style={[styles.tabButton, isActive && styles.activeTabButton]}
+        >
+            <Text style={[styles.tabButtonText, isActive && styles.activeTabButtonText]}>
+                {title}
+            </Text>
+        </TouchableOpacity>
+    );
+};

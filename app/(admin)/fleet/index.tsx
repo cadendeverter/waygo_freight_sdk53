@@ -1,10 +1,11 @@
 // waygo-freight/app/(admin)/fleet/index.tsx
 import React, { useState, useCallback } from 'react';
 import { FlatList, View, RefreshControl, Alert, Text } from 'react-native';
-import { styled } from 'nativewind';
+
 import { Stack, useRouter, useFocusEffect } from 'expo-router';
 import { useAuth } from '../../../state/authContext';
 import ScreenWrapper from '../../../components/ScreenWrapper';
+import { useTheme } from '../../../theme/ThemeContext'; // Assuming theme context is here
 import Heading from '../../../components/typography/Heading';
 import Paragraph from '../../../components/typography/Paragraph';
 import { fetchAllVehiclesForAdmin } from '../../../services/vehicleService';
@@ -15,9 +16,85 @@ import LoadingSpinner from '../../../components/LoadingSpinner';
 import Button from '../../../components/Button';
 import StatusBadge from '../../../components/StatusBadge';
 
-const StyledView = styled(View);
+
+
+const useStyles = () => {
+    const { theme } = useTheme();
+    return {
+        screen: {
+            backgroundColor: theme.colors.background, // bg-gray-50
+        },
+        headerContainer: {
+            padding: 16, // p-4
+            backgroundColor: theme.colors.surface, // bg-white
+            borderBottomWidth: 1,
+            borderBottomColor: theme.colors.border, // border-gray-200
+        },
+        headerRow: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 16, // mb-4
+        },
+        headerParagraph: {
+            color: theme.colors.textSecondary, // text-gray-600
+        },
+        listItemContainer: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flex: 1,
+        },
+        listItemTextContainer: {
+            flex: 1,
+        },
+        listItemTitleRow: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginBottom: 4, // mb-1
+        },
+        listItemIcon: {
+            marginRight: 8, // mr-2
+        },
+        listItemTitle: {
+            fontWeight: '500' as '500',
+            color: theme.colors.text, // text-gray-700
+        },
+        listItemSubtitle: {
+            fontSize: 14,
+            color: theme.colors.textSecondary, // text-gray-500
+        },
+        listItemDetailsContainer: {
+            alignItems: 'flex-end',
+        },
+        listItemStatusBadge: {
+            marginBottom: 4, // mb-1
+        },
+        listItemOdometer: {
+            fontSize: 12,
+            color: theme.colors.textSecondary, // text-gray-500
+        },
+        listItemChevron: {
+            marginLeft: 8, // ml-2
+        },
+        emptyListContainer: {
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 32, // p-8
+        },
+        emptyListText: {
+            textAlign: 'center',
+            color: theme.colors.textSecondary, // text-gray-500
+        },
+        contentContainer: {
+            padding: 16,
+        }
+    };
+};
 
 export default function AdminFleetScreen() {
+    const styles = useStyles();
     const router = useRouter();
     const { user: adminUser } = useAuth();
     const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -50,25 +127,25 @@ export default function AdminFleetScreen() {
 
     const renderVehicleItem = ({ item }: { item: Vehicle }) => (
         <ListItem onPress={() => router.push(`/fleet/${item.id}`)}>
-            <View className="flex-row items-center justify-between flex-1">
-                <View className="flex-1">
-                    <View className="flex-row items-center mb-1">
-                        <Truck size={16} color="#4B5563" className="mr-2" />
-                        <Text className="font-medium text-gray-700">
+            <View style={styles.listItemContainer}>
+                <View style={styles.listItemTextContainer}>
+                    <View style={styles.listItemTitleRow}>
+                        <Truck size={16} color={styles.listItemIcon.color || "#4B5563"} style={styles.listItemIcon} />
+                        <Text style={styles.listItemTitle}>
                             {item.year} {item.make} {item.model}
                         </Text>
                     </View>
-                    <Text className="text-sm text-gray-500">
+                    <Text style={styles.listItemSubtitle}>
                         {item.licensePlate} • {item.vin?.slice(-6) || 'No VIN'}
                     </Text>
                 </View>
-                <View className="items-end">
-                    <StatusBadge status={item.status} className="mb-1" />
-                    <Text className="text-xs text-gray-500">
+                <View style={styles.listItemDetailsContainer}>
+                    <StatusBadge status={item.status} style={styles.listItemStatusBadge} />
+                    <Text style={styles.listItemOdometer}>
                         {item.odometer?.toLocaleString() || 'N/A'} mi
                     </Text>
                 </View>
-                <ChevronRight size={20} color="#9CA3AF" className="ml-2" />
+                <ChevronRight size={20} color={styles.listItemChevron.color || "#9CA3AF"} style={styles.listItemChevron} />
             </View>
         </ListItem>
     );
@@ -78,14 +155,14 @@ export default function AdminFleetScreen() {
     }
 
     return (
-        <ScreenWrapper className="bg-gray-50">
+        <ScreenWrapper style={styles.screen}>
             <Stack.Screen options={{ title: 'Fleet Management' }} />
             
-            <View className="p-4 bg-white border-b border-gray-200">
-                <View className="flex-row justify-between items-center mb-4">
+            <View style={styles.headerContainer}>
+                <View style={styles.headerRow}>
                     <View>
                         <Heading>Fleet Management</Heading>
-                        <Paragraph className="text-gray-600">
+                        <Paragraph style={styles.headerParagraph}>
                             {vehicles.length} vehicle{vehicles.length !== 1 ? 's' : ''} in fleet
                         </Paragraph>
                     </View>
@@ -104,18 +181,18 @@ export default function AdminFleetScreen() {
                 data={vehicles}
                 renderItem={renderVehicleItem}
                 keyExtractor={(item) => item.id}
-                contentContainerStyle={{ padding: 16 }}
+                contentContainerStyle={styles.contentContainer}
                 refreshControl={
                     <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
                 }
                 ListEmptyComponent={
-                    <View className="items-center justify-center p-8">
-                        <Truck size={32} color="#9CA3AF" className="mb-2" />
-                        <Paragraph>No vehicles found</Paragraph>
+                    <View style={styles.emptyListContainer}>
+                        <Truck size={32} color="#9CA3AF" style={{ marginBottom: 8 }} />
+                        <Paragraph style={styles.emptyListText}>No vehicles found</Paragraph>
                         <Button
                             variant="outline"
                             size="sm"
-                            className="mt-4"
+                            style={{ marginTop: 16 }}
                             onPress={() => router.push('/fleet/new')}
                             iconLeft={<PlusCircle size={16} color="#1F2937" />}
                         >
