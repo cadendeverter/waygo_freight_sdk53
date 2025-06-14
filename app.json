@@ -23,22 +23,33 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"
-      }
+      },
+      "package": "com.cadendeverter.waygofreight"
     },
     "web": {
       "favicon": "./assets/favicon.png",
       "build": {
         "babel": {
           "include": [
-            "react-native-vector-icons"
+            "react-native-vector-icons",
+            "react-native-safe-area-context",
+            "@react-navigation",
+            "react-native-gesture-handler"
           ]
         }
+      },
+      "bundler": "metro",
+      "devClient": {
+        "disableHotReload": true
       }
     },
     "extra": {
       "eas": {
         "projectId": "your-project-id-here"
       }
-    }
+    },
+    "plugins": [
+      "expo-font"
+    ]
   }
 }

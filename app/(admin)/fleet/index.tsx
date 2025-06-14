@@ -11,7 +11,7 @@ import Paragraph from '../../../components/typography/Paragraph';
 import { fetchAllVehiclesForAdmin } from '../../../services/vehicleService';
 import { Vehicle } from '../../../utils/types';
 import ListItem from '../../../components/ListItem';
-import { Truck, ChevronRight, PlusCircle } from '../../../utils/icons';
+import { Truck, ChevronRight, Plus } from '../../../utils/icons';
 import LoadingSpinner from '../../../components/LoadingSpinner';
 import Button from '../../../components/Button';
 import StatusBadge from '../../../components/StatusBadge';
@@ -22,70 +22,72 @@ const useStyles = () => {
     const { theme } = useTheme();
     return {
         screen: {
-            backgroundColor: theme.colors.background, // bg-gray-50
+            backgroundColor: theme.colors.background,
         },
         headerContainer: {
-            padding: 16, // p-4
-            backgroundColor: theme.colors.surface, // bg-white
+            padding: 16,
+            backgroundColor: theme.colors.surface,
             borderBottomWidth: 1,
-            borderBottomColor: theme.colors.border, // border-gray-200
+            borderBottomColor: theme.colors.border,
         },
         headerRow: {
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: 16, // mb-4
+            flexDirection: 'row' as 'row',
+            justifyContent: 'space-between' as 'space-between',
+            alignItems: 'center' as 'center',
+            marginBottom: 16,
         },
         headerParagraph: {
-            color: theme.colors.textSecondary, // text-gray-600
+            color: theme.colors.textSecondary,
         },
         listItemContainer: {
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
+            flexDirection: 'row' as 'row',
+            alignItems: 'center' as 'center',
+            justifyContent: 'space-between' as 'space-between',
             flex: 1,
         },
         listItemTextContainer: {
             flex: 1,
         },
         listItemTitleRow: {
-            flexDirection: 'row',
-            alignItems: 'center',
-            marginBottom: 4, // mb-1
+            flexDirection: 'row' as 'row',
+            alignItems: 'center' as 'center',
+            marginBottom: 4,
         },
         listItemIcon: {
-            marginRight: 8, // mr-2
+            marginRight: 8,
         },
+        listItemIconColor: theme.colors.textSecondary,
+        listItemChevronColor: theme.colors.placeholder,
         listItemTitle: {
             fontWeight: '500' as '500',
-            color: theme.colors.text, // text-gray-700
+            color: theme.colors.text,
         },
         listItemSubtitle: {
             fontSize: 14,
-            color: theme.colors.textSecondary, // text-gray-500
+            color: theme.colors.textSecondary,
         },
         listItemDetailsContainer: {
-            alignItems: 'flex-end',
+            alignItems: 'flex-end' as 'flex-end',
         },
         listItemStatusBadge: {
-            marginBottom: 4, // mb-1
+            marginBottom: 4,
         },
         listItemOdometer: {
             fontSize: 12,
-            color: theme.colors.textSecondary, // text-gray-500
+            color: theme.colors.textSecondary,
         },
         listItemChevron: {
-            marginLeft: 8, // ml-2
+            marginLeft: 8,
         },
         emptyListContainer: {
             flex: 1,
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 32, // p-8
+            alignItems: 'center' as 'center',
+            justifyContent: 'center' as 'center',
+            padding: 32,
         },
         emptyListText: {
-            textAlign: 'center',
-            color: theme.colors.textSecondary, // text-gray-500
+            textAlign: 'center' as 'center',
+            color: theme.colors.textSecondary,
         },
         contentContainer: {
             padding: 16,
@@ -118,7 +120,9 @@ export default function AdminFleetScreen() {
         }
     }, [adminUser?.companyId]);
 
-    useFocusEffect(loadVehicles);
+    useFocusEffect(useCallback(() => {
+        loadVehicles();
+    }, [loadVehicles]));
 
     const onRefresh = () => {
         setIsRefreshing(true);
@@ -126,28 +130,20 @@ export default function AdminFleetScreen() {
     };
 
     const renderVehicleItem = ({ item }: { item: Vehicle }) => (
-        <ListItem onPress={() => router.push(`/fleet/${item.id}`)}>
-            <View style={styles.listItemContainer}>
-                <View style={styles.listItemTextContainer}>
-                    <View style={styles.listItemTitleRow}>
-                        <Truck size={16} color={styles.listItemIcon.color || "#4B5563"} style={styles.listItemIcon} />
-                        <Text style={styles.listItemTitle}>
-                            {item.year} {item.make} {item.model}
-                        </Text>
-                    </View>
-                    <Text style={styles.listItemSubtitle}>
-                        {item.licensePlate} • {item.vin?.slice(-6) || 'No VIN'}
-                    </Text>
-                </View>
-                <View style={styles.listItemDetailsContainer}>
-                    <StatusBadge status={item.status} style={styles.listItemStatusBadge} />
+        <ListItem
+            onPress={() => router.push(`/fleet/${item.id}`)}
+            title={`${item.year} ${item.make} ${item.model}`}
+            subtitle={item.licensePlate}
+            left={() => <Truck size={24} color={styles.listItemIconColor} />}
+            right={() => (
+                <View style={{ alignItems: 'flex-end' }}>
+                    <StatusBadge status={item.status} />
                     <Text style={styles.listItemOdometer}>
                         {item.odometer?.toLocaleString() || 'N/A'} mi
                     </Text>
                 </View>
-                <ChevronRight size={20} color={styles.listItemChevron.color || "#9CA3AF"} style={styles.listItemChevron} />
-            </View>
-        </ListItem>
+            )}
+        />
     );
 
     if (isLoading && !isRefreshing) {
@@ -167,10 +163,10 @@ export default function AdminFleetScreen() {
                         </Paragraph>
                     </View>
                     <Button
-                        variant="primary"
-                        size="sm"
-                        iconLeft={<PlusCircle size={16} color="#FFFFFF" />}
+                        mode="contained"
+                        compact
                         onPress={() => router.push('/fleet/new')}
+                        icon={<Plus size={16} color="#FFFFFF" />}
                     >
                         Add Vehicle
                     </Button>
@@ -187,14 +183,14 @@ export default function AdminFleetScreen() {
                 }
                 ListEmptyComponent={
                     <View style={styles.emptyListContainer}>
-                        <Truck size={32} color="#9CA3AF" style={{ marginBottom: 8 }} />
+                        <Truck size={32} color={styles.listItemChevronColor} style={{ marginBottom: 8 }} />
                         <Paragraph style={styles.emptyListText}>No vehicles found</Paragraph>
                         <Button
-                            variant="outline"
-                            size="sm"
+                            mode="outlined"
+                            compact
                             style={{ marginTop: 16 }}
                             onPress={() => router.push('/fleet/new')}
-                            iconLeft={<PlusCircle size={16} color="#1F2937" />}
+                            icon={<Plus size={16} color={styles.listItemIconColor} />}
                         >
                             Add Your First Vehicle
                         </Button>
