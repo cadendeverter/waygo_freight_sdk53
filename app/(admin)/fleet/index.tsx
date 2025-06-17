@@ -95,7 +95,7 @@ const useStyles = () => {
     };
 };
 
-export default function AdminFleetScreen() {
+function AdminFleetScreen() {
     const styles = useStyles();
     const router = useRouter();
     const { user: adminUser } = useAuth();
@@ -200,3 +200,5 @@ export default function AdminFleetScreen() {
         </ScreenWrapper>
     );
 }
+
+export default AdminFleetScreen;

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { onAuthStateChanged, User as FirebaseUser, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { User as FirebaseUser, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, onSnapshot, Timestamp } from 'firebase/firestore';
-import { auth, db } from '../firebase/config';
+import { auth, db } from '../firebase/config'; // Import auth from our config to ensure proper initialization
 import { AppRole, UserProfile } from '../utils/types';
 
 interface AuthContextType {
@@ -33,21 +33,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Listen for auth state changes
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, async (fbUser) => {
+    // Ensure auth is initialized before setting up listeners
+    if (!auth) {
+      console.warn('Firebase Auth not initialized yet');
+      return;
+    }
+
+    let unsubscribe: (() => void) | undefined;
+
+    unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       setFirebaseUser(fbUser);
-      
+
       if (!fbUser) {
         setUser(null);
         setIsLoading(false);
         return;
       }
-      
-      // If we have a user, set up a real-time listener for their profile
+
       const userDocRef = doc(db, 'usersFreight', fbUser.uid);
-      
+
       const unsubscribeProfile = onSnapshot(
         userDocRef,
-        (docSnap) => {
+        async (docSnap) => {
           if (docSnap.exists()) {
             const userData = docSnap.data();
             const profile: UserProfile = {
@@ -63,13 +70,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               isAvailable: userData.isAvailable,
               assignedTruckId: userData.assignedTruckId,
               currentLocation: userData.currentLocation,
-              currentLocationUpdatedAt: userData.currentLocationUpdatedAt 
-                ? transformTimestamp(userData.currentLocationUpdatedAt) 
-                : undefined,
+              currentLocationUpdatedAt: userData.currentLocationUpdatedAt ? transformTimestamp(userData.currentLocationUpdatedAt) : undefined,
               currentLoadId: userData.currentLoadId,
-              lastSafetyTrainingCompletedDate: userData.lastSafetyTrainingCompletedDate 
-                ? transformTimestamp(userData.lastSafetyTrainingCompletedDate)
-                : undefined,
+              lastSafetyTrainingCompletedDate: userData.lastSafetyTrainingCompletedDate ? transformTimestamp(userData.lastSafetyTrainingCompletedDate) : undefined,
               referralCode: userData.referralCode,
               referredBy: userData.referredBy,
               referralRewardApplied: userData.referralRewardApplied,
@@ -80,27 +83,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setUser(profile);
           } else {
             console.warn(`No profile found for user ${fbUser.uid}. Forcing logout.`);
-            signOut(auth);
+            await signOut(auth);
             setUser(null);
           }
           setIsLoading(false);
         },
         (error) => {
-          console.error("Error listening to user profile:", error);
+          console.error('Error listening to user profile:', error);
           setIsLoading(false);
           setUser(null);
         }
       );
-      
-      return () => unsubscribeProfile();
+
+      // cleanup profile listener when auth changes
+      unsubscribe = () => {
+        unsubscribeProfile();
+        signOut(auth).catch(() => {});
+      };
     });
-    
-    return () => unsubscribeAuth();
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 
   const login = async (email: string, password: string) => {
     try {
       setIsLoading(true);
+      if (!auth) {
+        throw new Error('Auth service not initialized');
+      }
       await signInWithEmailAndPassword(auth, email, password);
       // The onAuthStateChanged listener will handle the rest
     } catch (error) {
@@ -114,6 +126,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = async () => {
     try {
       setIsLoading(true);
+      if (!auth) {
+        throw new Error('Auth service not initialized');
+      }
       await signOut(auth);
       // The onAuthStateChanged listener will handle the rest
     } catch (error) {

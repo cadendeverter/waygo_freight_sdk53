@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User as FirebaseUser } from 'firebase/auth';
 import { authService } from '../services/firebaseService';
-import { UserProfile, Company } from '../types';
+import { UserProfile, Company } from '../../utils/types';
 
 type AuthContextType = {
   user: UserProfile | null;
@@ -26,48 +26,54 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Check if user is logged in on app start
   useEffect(() => {
-    const unsubscribe = authService.authInstance.onAuthStateChanged(
-      async (firebaseUser: FirebaseUser | null) => {
-        try {
-          if (firebaseUser) {
-            // User is signed in
-            const userProfile = await authService.getUserProfile(firebaseUser.uid);
-            if (userProfile) {
-              setUser(userProfile);
-              
-              // Load company data if available
-              if (userProfile.companyId) {
-                try {
-                  const companyData = await authService.getCompany(userProfile.companyId);
-                  if (companyData) {
-                    setCompany(companyData);
+    // Defer auth state listener to ensure Firebase auth is fully initialized
+    const timeoutId = setTimeout(() => {
+      const unsubscribe = authService.authInstance.onAuthStateChanged(
+        async (firebaseUser: FirebaseUser | null) => {
+          try {
+            if (firebaseUser) {
+              // User is signed in
+              const userProfile = await authService.getUserProfile(firebaseUser.uid);
+              if (userProfile) {
+                setUser(userProfile);
+                
+                // Load company data if available
+                if (userProfile.companyId) {
+                  try {
+                    const companyData = await authService.getCompany(userProfile.companyId);
+                    if (companyData) {
+                      setCompany(companyData);
+                    }
+                  } catch (err) {
+                    console.error('Error loading company data:', err);
                   }
-                } catch (err) {
-                  console.error('Error loading company data:', err);
                 }
               }
+            } else {
+              // User is signed out
+              setUser(null);
+              setCompany(null);
             }
-          } else {
-            // User is signed out
-            setUser(null);
-            setCompany(null);
+          } catch (err) {
+            console.error('Error in auth state change:', err);
+            setError('Failed to load user data');
+          } finally {
+            setIsLoading(false);
           }
-        } catch (err) {
-          console.error('Error in auth state change:', err);
-          setError('Failed to load user data');
-        } finally {
+        },
+        (err: any) => {
+          console.error('Auth state change error:', err);
+          setError('Authentication error occurred');
           setIsLoading(false);
         }
-      },
-      (err) => {
-        console.error('Auth state change error:', err);
-        setError('Authentication error occurred');
-        setIsLoading(false);
-      }
-    );
+      );
 
-    // Cleanup subscription on unmount
-    return () => unsubscribe();
+      // Cleanup subscription on unmount
+      return () => {
+        unsubscribe();
+        clearTimeout(timeoutId);
+      };
+    }, 100);
   }, []);
 
   const signIn = async (email: string, password: string) => {

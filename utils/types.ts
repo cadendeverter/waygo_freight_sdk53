@@ -1,9 +1,21 @@
 // $ProjectName/utils/types.ts
 // Fully implemented types for production use.
-import { FirebaseMessagingTypes } from '@react-native-firebase/messaging';
+// Firebase cloud messaging types (minimal) – adjust as needed
+type FirebaseMessagingTypes = any;
 
 export interface Coordinates { latitude: number; longitude: number; }
 export type AppRole = 'DRIVER_FREIGHT' | 'DISPATCHER_FREIGHT' | 'WAREHOUSE_FREIGHT' | 'ADMIN_FREIGHT' | 'CUSTOMER_FREIGHT' | 'UNKNOWN';
+
+export interface Company {
+  id: string;
+  name: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  contactPerson?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
 
 export interface UserProfile {
   uid: string;

@@ -40,7 +40,7 @@ const { LightTheme, DarkTheme } = adaptNavigationTheme({
 // Create light theme
 const CombinedLightTheme = {
   ...MD3LightTheme,
-  ...LightTheme,
+  isV3: true,
   colors: {
     ...MD3LightTheme.colors,
     ...LightTheme.colors,
@@ -54,6 +54,8 @@ const CombinedLightTheme = {
     onSurface: waygoColors.onSurface,
     // Ensure all required Paper v5 keys are present
     surfaceVariant: '#E0E0E0', // Example, adjust as needed
+    successContainer: '#D1FAE5',
+    onSuccessContainer: '#065F46',
     onSurfaceVariant: '#424242',
     outline: waygoColors.border,
     elevation: {
@@ -70,7 +72,7 @@ const CombinedLightTheme = {
 // Create dark theme
 const CombinedDarkTheme = {
   ...MD3DarkTheme,
-  ...DarkTheme,
+  isV3: true,
   colors: {
     ...MD3DarkTheme.colors,
     ...DarkTheme.colors,
@@ -89,6 +91,8 @@ const CombinedDarkTheme = {
     divider: '#374151',    // Divider Color
     // Ensure all required Paper v5 keys are present
     surfaceVariant: '#424242', // Example, adjust as needed
+    successContainer: '#065F46',
+    onSuccessContainer: '#A7F3D0',
     onSurfaceVariant: '#BDBDBD',
     outline: waygoColors.border,
     elevation: {

@@ -7,7 +7,7 @@ export default function TabLayout() {
 
   return (
     <Tabs
-      screenOptions={{
+      screenOptions={({ route }) => ({
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
         tabBarStyle: {
@@ -15,44 +15,21 @@ export default function TabLayout() {
           borderTopColor: theme.colors.outline,
         },
         headerShown: false,
-      }}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="home" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="shipments"
-        options={{
-          title: 'Shipments',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="truck-delivery" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="messages"
-        options={{
-          title: 'Messages',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="message" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profile',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="person" size={size} color={color} />
-          ),
-        }}
-      />
-    </Tabs>
+        tabBarIcon: ({ color, size }) => {
+          switch (route.name) {
+            case 'index':
+              return <MaterialCommunityIcons name="home" size={size} color={color} />;
+            case 'shipments':
+              return <MaterialCommunityIcons name="truck-delivery" size={size} color={color} />;
+            case 'messages':
+              return <MaterialIcons name="message" size={size} color={color} />;
+            case 'profile':
+              return <MaterialIcons name="person" size={size} color={color} />;
+            default:
+              return null;
+          }
+        },
+      })}
+    />
   );
 }

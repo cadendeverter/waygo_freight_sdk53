@@ -1,20 +1,14 @@
 import { Platform } from 'react-native';
-import { getAuth } from 'firebase/auth';
-import { initializeApp } from 'firebase/app';
-import { getFunctions, httpsCallable } from 'firebase/functions';
+import { auth, functions } from '../../firebase/config';
+
+import { httpsCallable } from 'firebase/functions';
 import { API_BASE_URL, IS_DEV } from '@env';
 
-// Initialize Firebase
-import { FIREBASE_CONFIG } from '../../firebaseConfig';
 
-const app = initializeApp(FIREBASE_CONFIG);
-const auth = getAuth(app);
-const functions = getFunctions(app, 'us-central1');
 
-if (IS_DEV === 'true') {
-  // Connect to local emulator in development
-  functions.useEmulator('localhost', 5001);
-}
+
+
+// TODO: connectFunctionsEmulator(functions, 'localhost', 5001) if needed
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 

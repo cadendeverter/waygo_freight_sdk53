@@ -33,10 +33,17 @@ const adminUpdateExpenseCallable = httpsCallable<{ expenseId: string; updates: P
  * Fetch all expenses for an admin user given their companyId.
  * Falls back to Firestore direct query if the callable function is not available.
  */
-export const fetchAllExpensesForAdmin = async (companyId: string): Promise<ExpenseReport[]> => {
+export const fetchAllExpensesForAdmin = async (
+  companyId: string,
+  statusFilter?: 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED'
+): Promise<ExpenseReport[]> => {
   try {
     const expensesRef = collection(db, 'expensesFreight');
-    const q = query(expensesRef, where('companyId', '==', companyId), orderBy('date', 'desc'));
+    const filters = [where('companyId', '==', companyId)];
+    if (statusFilter) {
+      filters.push(where('status', '==', statusFilter));
+    }
+    const q = query(expensesRef, ...filters, orderBy('date', 'desc'));
     const snapshot = await getDocs(q);
     return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as ExpenseReport));
   } catch (error: any) {

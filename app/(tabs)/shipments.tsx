@@ -1,242 +1,257 @@
-import { View, StyleSheet, FlatList } from 'react-native';
-import { Text, Card, Button, useTheme, Searchbar, ActivityIndicator } from 'react-native-paper';
-import { useRouter } from 'expo-router';
-import { useState, useEffect } from 'react';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '../../firebase';
+import React, { useState, useCallback } from 'react';
+import { FlatList, View, RefreshControl } from 'react-native';
+import { Stack, useRouter, useFocusEffect } from 'expo-router';
+import { useAuth } from '../../state/authContext';
+import ScreenWrapper from '../../components/ScreenWrapper';
+import { useTheme } from '../../theme/ThemeContext';
+import Heading from '../../components/typography/Heading';
+import { Text, Card, Button, Chip, Searchbar } from 'react-native-paper';
+import { Truck, MapPin, Clock, Package } from '../../utils/icons';
+import LoadingSpinner from '../../components/LoadingSpinner';
 
-type Shipment = {
-  id: string;
-  trackingNumber: string;
-  status: 'pending' | 'in_transit' | 'delivered' | 'cancelled';
-  origin: string;
-  destination: string;
-  pickupDate: string;
-  deliveryDate?: string;
-};
+// Mock data for shipments
+const mockShipments = [
+  {
+    id: 'SH001',
+    status: 'in_transit',
+    customerName: 'ABC Manufacturing',
+    pickupLocation: 'Los Angeles, CA',
+    deliveryLocation: 'Phoenix, AZ',
+    pickupDate: '2025-06-16T08:00:00Z',
+    estimatedDelivery: '2025-06-17T14:00:00Z',
+    weight: '15,000 lbs',
+    value: '$25,000',
+    trackingNumber: 'WG123456789',
+    driverName: 'John Smith',
+    truckNumber: 'T-001'
+  },
+  {
+    id: 'SH002',
+    status: 'delivered',
+    customerName: 'XYZ Corp',
+    pickupLocation: 'Dallas, TX',
+    deliveryLocation: 'Houston, TX',
+    pickupDate: '2025-06-15T10:00:00Z',
+    estimatedDelivery: '2025-06-16T16:00:00Z',
+    actualDelivery: '2025-06-16T15:30:00Z',
+    weight: '20,000 lbs',
+    value: '$40,000',
+    trackingNumber: 'WG987654321',
+    driverName: 'Sarah Johnson',
+    truckNumber: 'T-002'
+  },
+  {
+    id: 'SH003',
+    status: 'pending',
+    customerName: 'Tech Solutions Inc',
+    pickupLocation: 'Seattle, WA',
+    deliveryLocation: 'Portland, OR',
+    pickupDate: '2025-06-18T09:00:00Z',
+    estimatedDelivery: '2025-06-18T17:00:00Z',
+    weight: '8,500 lbs',
+    value: '$15,000',
+    trackingNumber: 'WG456789123',
+    driverName: null,
+    truckNumber: null
+  }
+];
 
-export default function ShipmentsScreen() {
-  const theme = useTheme();
+function ShipmentsScreen() {
+  const { theme } = useTheme();
   const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [shipments, setShipments] = useState<Shipment[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const [shipments, setShipments] = useState(mockShipments);
+  const [filteredShipments, setFilteredShipments] = useState(mockShipments);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // Fetch shipments from Firestore
-  const fetchShipments = async () => {
-    try {
-      const shipmentsRef = collection(db, 'shipments');
-      const q = query(shipmentsRef); // Add filters as needed
-      const querySnapshot = await getDocs(q);
-      
-      const shipmentsData = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Shipment[];
-      
-      setShipments(shipmentsData);
-    } catch (error) {
-      console.error('Error fetching shipments:', error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchShipments();
+  const fetchShipments = useCallback(async () => {
+    setLoading(true);
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    setShipments(mockShipments);
+    setFilteredShipments(mockShipments);
+    setLoading(false);
+    setRefreshing(false);
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchShipments();
+    }, [fetchShipments])
+  );
 
   const handleRefresh = () => {
     setRefreshing(true);
     fetchShipments();
   };
 
-  const filteredShipments = shipments.filter(shipment => 
-    shipment.trackingNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    shipment.origin.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    shipment.destination.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'delivered':
-        return theme.colors.primary;
-      case 'in_transit':
-        return theme.colors.secondary;
-      case 'cancelled':
-        return theme.colors.error;
-      default:
-        return theme.colors.onSurfaceVariant;
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    if (query.trim() === '') {
+      setFilteredShipments(shipments);
+    } else {
+      const filtered = shipments.filter(shipment =>
+        shipment.customerName.toLowerCase().includes(query.toLowerCase()) ||
+        shipment.trackingNumber.toLowerCase().includes(query.toLowerCase()) ||
+        shipment.pickupLocation.toLowerCase().includes(query.toLowerCase()) ||
+        shipment.deliveryLocation.toLowerCase().includes(query.toLowerCase())
+      );
+      setFilteredShipments(filtered);
     }
   };
 
-  if (loading) {
-    return (
-      <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-      </View>
-    );
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return theme.colors.primary;
+      case 'in_transit':
+        return '#FF9500';
+      case 'delivered':
+        return '#34C759';
+      case 'cancelled':
+        return theme.colors.error;
+      default:
+        return theme.colors.outline;
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const renderShipment = ({ item }: { item: any }) => (
+    <Card style={[{ marginHorizontal: 16, marginVertical: 8 }]}>
+      <Card.Content>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+          <View style={{ flex: 1 }}>
+            <Text variant="titleMedium" style={{ fontWeight: 'bold', marginBottom: 4 }}>
+              {item.customerName}
+            </Text>
+            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+              {item.trackingNumber}
+            </Text>
+          </View>
+          <Chip 
+            mode="outlined" 
+            textStyle={{ color: getStatusColor(item.status), fontSize: 12 }}
+            style={{ alignSelf: 'flex-start' }}
+          >
+            {item.status.replace('_', ' ').toUpperCase()}
+          </Chip>
+        </View>
+
+        <View style={{ marginBottom: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+            <MapPin size={16} color={theme.colors.onSurface} />
+            <Text variant="bodyMedium" style={{ marginLeft: 8, flex: 1 }}>
+              From: {item.pickupLocation}
+            </Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+            <MapPin size={16} color={theme.colors.onSurface} />
+            <Text variant="bodyMedium" style={{ marginLeft: 8, flex: 1 }}>
+              To: {item.deliveryLocation}
+            </Text>
+          </View>
+          
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+            <Clock size={16} color={theme.colors.onSurfaceVariant} />
+            <Text variant="bodySmall" style={{ marginLeft: 8, color: theme.colors.onSurfaceVariant }}>
+              Pickup: {formatDate(item.pickupDate)}
+            </Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+            <Clock size={16} color={theme.colors.onSurfaceVariant} />
+            <Text variant="bodySmall" style={{ marginLeft: 8, color: theme.colors.onSurfaceVariant }}>
+              Delivery: {formatDate(item.estimatedDelivery)}
+            </Text>
+          </View>
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+            <Package size={16} color={theme.colors.onSurfaceVariant} />
+            <Text variant="bodySmall" style={{ marginLeft: 8, color: theme.colors.onSurfaceVariant }}>
+              Weight: {item.weight} • Value: {item.value}
+            </Text>
+          </View>
+
+          {item.driverName && (
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Truck size={16} color={theme.colors.onSurfaceVariant} />
+              <Text variant="bodySmall" style={{ marginLeft: 8, color: theme.colors.onSurfaceVariant }}>
+                Driver: {item.driverName} • Truck: {item.truckNumber}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+          <Button 
+            mode="outlined" 
+            onPress={() => router.push(`/shipments/${item.id}`)}
+            style={{ marginRight: 8 }}
+          >
+            Track
+          </Button>
+          <Button mode="contained" onPress={() => router.push(`/shipments/${item.id}/details`)}>
+            Details
+          </Button>
+        </View>
+      </Card.Content>
+    </Card>
+  );
+
+  if (loading && !refreshing) {
+    return <LoadingSpinner />;
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Searchbar
-        placeholder="Search shipments..."
-        onChangeText={setSearchQuery}
-        value={searchQuery}
-        style={styles.searchBar}
-      />
+    <ScreenWrapper>
+      <Stack.Screen options={{ title: 'Shipments' }} />
       
+      <View style={{ padding: 16, backgroundColor: theme.colors.surface, borderBottomWidth: 1, borderBottomColor: theme.colors.outline }}>
+        <Heading variant="h1">Shipments</Heading>
+        <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, marginTop: 4, marginBottom: 16 }}>
+          Track and manage freight shipments
+        </Text>
+        
+        <Searchbar
+          placeholder="Search shipments..."
+          onChangeText={handleSearch}
+          value={searchQuery}
+          style={{ backgroundColor: theme.colors.surfaceVariant }}
+        />
+      </View>
+
       <FlatList
         data={filteredShipments}
         keyExtractor={(item) => item.id}
-        refreshing={refreshing}
-        onRefresh={handleRefresh}
-        contentContainerStyle={styles.listContent}
+        renderItem={renderShipment}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
+        contentContainerStyle={{ paddingVertical: 8 }}
+        showsVerticalScrollIndicator={false}
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text variant="titleMedium">No shipments found</Text>
-            <Button 
-              mode="contained" 
-              onPress={() => router.push('/shipments/new')}
-              style={styles.emptyButton}
-            >
-              Create New Shipment
-            </Button>
+          <View style={{ padding: 32, alignItems: 'center' }}>
+            <Package size={48} color={theme.colors.onSurfaceVariant} />
+            <Text variant="bodyLarge" style={{ marginTop: 16, textAlign: 'center' }}>
+              No shipments found
+            </Text>
+            <Text variant="bodyMedium" style={{ marginTop: 8, textAlign: 'center', color: theme.colors.onSurfaceVariant }}>
+              {searchQuery ? 'Try adjusting your search' : 'Your shipments will appear here'}
+            </Text>
           </View>
         }
-        renderItem={({ item }) => (
-          <Card 
-            style={styles.card}
-            onPress={() => router.push(`/shipments/${item.id}`)}
-          >
-            <Card.Content>
-              <View style={styles.cardHeader}>
-                <Text variant="titleMedium">#{item.trackingNumber}</Text>
-                <Text 
-                  style={[
-                    styles.statusBadge, 
-                    { color: getStatusColor(item.status) }
-                  ]}
-                >
-                  {item.status.replace('_', ' ')}
-                </Text>
-              </View>
-              
-              <View style={styles.routeContainer}>
-                <View style={styles.routeDot}>
-                  <View style={[styles.dot, { backgroundColor: theme.colors.primary }]} />
-                  <View style={[styles.line, { backgroundColor: theme.colors.outline }]} />>
-                </View>
-                <View style={styles.routeText}>
-                  <Text variant="bodyMedium" numberOfLines={1}>
-                    {item.origin}
-                  </Text>
-                  <Text variant="bodyMedium" numberOfLines={1}>
-                    {item.destination}
-                  </Text>
-                </View>
-              </View>
-              
-              <View style={styles.datesContainer}>
-                <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                  Pickup: {new Date(item.pickupDate).toLocaleDateString()}
-                </Text>
-                {item.deliveryDate && (
-                  <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                    Delivery: {new Date(item.deliveryDate).toLocaleDateString()}
-                  </Text>
-                )}
-              </View>
-            </Card.Content>
-          </Card>
-        )}
       />
-      
-      <Button 
-        mode="contained" 
-        style={[styles.fab, { backgroundColor: theme.colors.primary }]}
-        onPress={() => router.push('/shipments/new')}
-      >
-        New Shipment
-      </Button>
-    </View>
+    </ScreenWrapper>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  searchBar: {
-    margin: 16,
-    marginBottom: 8,
-  },
-  listContent: {
-    padding: 16,
-    paddingTop: 8,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  emptyButton: {
-    marginTop: 16,
-  },
-  card: {
-    marginBottom: 16,
-    elevation: 2,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  statusBadge: {
-    textTransform: 'capitalize',
-    fontWeight: '500',
-  },
-  routeContainer: {
-    flexDirection: 'row',
-    marginBottom: 12,
-  },
-  routeDot: {
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  dot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  line: {
-    width: 1,
-    height: 32,
-    marginVertical: 4,
-  },
-  routeText: {
-    flex: 1,
-  },
-  datesContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8,
-  },
-  fab: {
-    position: 'absolute',
-    margin: 16,
-    right: 0,
-    bottom: 0,
-    borderRadius: 24,
-  },
-});
+export default ShipmentsScreen;

@@ -3,7 +3,7 @@ import React from 'react';
 import { Tabs, Redirect } from 'expo-router';
 import { Platform } from 'react-native';
 import { useAuth } from '../../state/authContext';
-import { Users, Truck, FileBadge, BarChart3, Settings } from '../../utils/icons';
+import { User, Truck, FileText, BarChart, Settings } from '../../utils/icons';
 import LoadingSpinner from '../../components/LoadingSpinner';
 
 export default function AdminLayout() {
@@ -33,10 +33,10 @@ export default function AdminLayout() {
         headerShown: false,
         tabBarIcon: ({ color, size, focused }) => {
           const iconSize = focused ? size * 0.95 : size * 0.85; 
-          if (route.name === 'users/index') return <Users size={iconSize} color={color} />;
+          if (route.name === 'users/index') return <User size={iconSize} color={color} />;
           if (route.name === 'fleet/index') return <Truck size={iconSize} color={color} />;
-          if (route.name === 'compliance/index') return <FileBadge size={iconSize} color={color} />;
-          if (route.name === 'reports/index') return <BarChart3 size={iconSize} color={color} />;
+          if (route.name === 'compliance/index') return <FileText size={iconSize} color={color} />;
+          if (route.name === 'reports/index') return <BarChart size={iconSize} color={color} />;
           if (route.name === 'system-config/index') return <Settings size={iconSize} color={color} />;
           return null;
         },

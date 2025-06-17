@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, StyleSheet, ViewStyle, TextStyle } from 'react-native';
+import { TouchableOpacity, StyleSheet, ViewStyle, TextStyle, View, ActivityIndicator } from 'react-native';
 import { Text, useTheme } from 'react-native-paper';
 
 type ButtonProps = {

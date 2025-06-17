@@ -129,7 +129,7 @@ export default function AdminExpensesScreen() {
         if (!adminUser?.companyId) return;
         setIsLoading(true);
         try {
-            const { expenses: fetchedExpenses } = await fetchAllExpensesForAdmin(adminUser.companyId, tab);
+            const fetchedExpenses = await fetchAllExpensesForAdmin(adminUser.companyId, tab);
             setExpenses(fetchedExpenses);
         } catch (error: any) {
             Alert.alert('Error', error.message || 'Failed to fetch expenses.');
@@ -155,7 +155,7 @@ export default function AdminExpensesScreen() {
     };
 
     const renderExpenseItem = ({ item }: { item: ExpenseReport }) => (
-        <ListItem onPress={() => handleExpensePress(item.id)}>
+        <ListItem onPress={() => handleExpensePress(item.id)} title="" style={{paddingHorizontal:0}}>
             <View style={styles.listItemContainer}>
                 <View style={styles.listItemTextContainer}>
                     <View style={styles.listItemTitleRow}>
@@ -163,7 +163,13 @@ export default function AdminExpensesScreen() {
                         <Text style={styles.listItemCategory}>{item.category}</Text>
                     </View>
                     <Text style={styles.listItemDetails}>
-                        {item.driverName} • {new Date(item.date).toLocaleDateString()}
+                        {(item as any).driverName ?? ''} • {
+                            (() => {
+                                const d = (item.date as any);
+                                const ms = typeof d === 'object' && d?.seconds ? d.seconds * 1000 : d;
+                                return new Date(ms as number).toLocaleDateString();
+                            })()
+                        }
                     </Text>
                 </View>
                 <View style={styles.listItemAmountContainer}>

@@ -17,6 +17,10 @@
       "esnext"
     ],
     "moduleResolution": "bundler",
+    "types": [
+      "expo-router/types",
+      "react"
+    ],
     "noEmit": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,

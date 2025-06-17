@@ -1,4 +1,3 @@
-import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { 
   getAuth, 
   signInWithEmailAndPassword, 
@@ -37,37 +36,13 @@ import {
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject, FirebaseStorage } from 'firebase/storage';
 import { getFunctions, httpsCallable, Functions } from 'firebase/functions';
 
-import { FIREBASE_CONFIG } from '../../firebaseConfig';
-import { UserProfile, Company } from '../types';
 
-// Initialize Firebase
-let app: FirebaseApp;
-let auth: Auth;
-let db: Firestore;
-let storage: FirebaseStorage;
-let functions: Functions;
+import { UserProfile, Company } from '../../utils/types';
 
-const initializeFirebase = () => {
-  if (!getApps().length) {
-    app = initializeApp(FIREBASE_CONFIG);
-    auth = getAuth(app);
-    db = getFirestore(app);
-    storage = getStorage(app);
-    functions = getFunctions(app, 'us-central1');
-    
-    if (__DEV__) {
-      // Connect to emulators in development
-      connectToEmulators();
-    }
-  } else {
-    app = getApp();
-    auth = getAuth(app);
-    db = getFirestore(app);
-    storage = getStorage(app);
-    functions = getFunctions(app, 'us-central1');
-  }
-};
+// Shared Firebase instances
+import { app, auth, db, storage, functions } from '../../firebase/config';
 
+// Emulator helper (optional)
 const connectToEmulators = () => {
   try {
     // Only import these in development
@@ -88,11 +63,12 @@ const connectToEmulators = () => {
   }
 };
 
-// Initialize Firebase when this module is loaded
-initializeFirebase();
 
 // Auth Service
 const authService = {
+  // Auth instance for direct access
+  authInstance: auth,
+
   // Sign in with email and password
   signIn: async (email: string, password: string): Promise<UserCredential> => {
     try {

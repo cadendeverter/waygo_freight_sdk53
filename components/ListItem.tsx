@@ -1,15 +1,17 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet, ViewStyle, StyleProp } from 'react-native';
+import { Text } from 'react-native-paper';
 import { useTheme } from 'react-native-paper';
 
 type ListItemProps = {
-  title: string;
+  title?: string;
   subtitle?: string;
   left?: (props: { color: string }) => React.ReactNode;
   right?: (props: { color: string }) => React.ReactNode;
   onPress?: () => void;
   style?: StyleProp<ViewStyle>;
   disabled?: boolean;
+  children?: React.ReactNode;
 };
 
 export default function ListItem({
@@ -20,11 +22,14 @@ export default function ListItem({
   onPress,
   style,
   disabled = false,
+  children,
 }: ListItemProps) {
   const theme = useTheme();
   const color = theme.colors.onSurface;
   
-  const content = (
+  const content = children ? (
+    <View style={[styles.container, style]}>{children}</View>
+  ) : (
     <View style={[styles.container, style]}>
       {left && <View style={styles.left}>{left({ color })}</View>}
       <View style={styles.content}>
