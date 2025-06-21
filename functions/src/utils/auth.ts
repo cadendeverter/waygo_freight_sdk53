@@ -1,5 +1,5 @@
-import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { HttpsError, CallableRequest } from 'firebase-functions/v2/https';
 
 // User data interface
 export interface UserData {
@@ -14,19 +14,28 @@ export interface UserData {
     updatedAt: admin.firestore.Timestamp;
 }
 
-// Helper function to ensure authentication
-export const ensureAuth = (context: functions.https.CallableContext) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
+/**
+ * Ensures the user is authenticated
+ * @param request - The callable request object
+ * @returns Authentication object
+ */
+export const ensureAuth = (request: CallableRequest) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Authentication required');
   }
-  return context.auth;
+  return request.auth;
 };
 
-// Helper function to ensure user has required role
-export const ensureRole = (context: functions.https.CallableContext, allowedRoles: string[]) => {
-  const auth = ensureAuth(context);
-  if (!allowedRoles.includes(auth.token.role)) {
-    throw new functions.https.HttpsError('permission-denied', 'Role not authorized');
+/**
+ * Ensures the user has one of the specified roles
+ * @param request - The callable request object
+ * @param allowedRoles - Array of allowed roles
+ * @returns Authentication object
+ */
+export const ensureRole = (request: CallableRequest, allowedRoles: string[]) => {
+  const auth = ensureAuth(request);
+  if (!auth.token.role || !allowedRoles.includes(auth.token.role)) {
+    throw new HttpsError('permission-denied', 'Insufficient permissions');
   }
   return auth;
 };

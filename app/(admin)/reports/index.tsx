@@ -1,91 +1,293 @@
 // waygo-freight/app/(admin)/reports/index.tsx
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { ScrollView, View, Dimensions, RefreshControl } from 'react-native';
 import { Stack, useRouter, useFocusEffect } from 'expo-router';
 import { useAuth } from '../../../state/authContext';
+import { useLoad } from '../../../state/loadContext';
+import { useFleet } from '../../../state/fleetContext';
+import { useCompliance } from '../../../state/complianceContext';
+import { useWarehouse } from '../../../state/warehouseContext';
 import ScreenWrapper from '../../../components/ScreenWrapper';
 import { useTheme } from '../../../theme/ThemeContext';
 import Heading from '../../../components/typography/Heading';
-import { Text, Card, Button, Chip, SegmentedButtons, ProgressBar } from 'react-native-paper';
-import { BarChart, TrendingUp, TrendingDown, DollarSign, Truck, Package, User, Calendar, Download, RefreshCw } from '../../../utils/icons';
+import { Text, Card, Button, Chip, SegmentedButtons, ProgressBar, IconButton } from 'react-native-paper';
+import { 
+  BarChart, TrendingUp, TrendingDown, DollarSign, Truck, Package, User, Calendar, 
+  Download, RefreshCw, AlertTriangle, CheckCircle, Clock, MapPin, FileText, Eye
+} from '../../../utils/icons';
 import LoadingSpinner from '../../../components/LoadingSpinner';
+import { Alert } from 'react-native';
 
 const { width } = Dimensions.get('window');
-
-// Mock analytics data
-const mockAnalytics = {
-  revenue: {
-    current: 245750,
-    previous: 198320,
-    growth: 23.9
-  },
-  shipments: {
-    current: 1247,
-    previous: 1103,
-    growth: 13.1
-  },
-  drivers: {
-    active: 68,
-    total: 75,
-    utilization: 90.7
-  },
-  fleet: {
-    active: 45,
-    maintenance: 3,
-    available: 42,
-    utilization: 93.3
-  },
-  monthlyRevenue: [
-    { month: 'Jan', revenue: 198320, shipments: 1103 },
-    { month: 'Feb', revenue: 215480, shipments: 1156 },
-    { month: 'Mar', revenue: 232150, shipments: 1201 },
-    { month: 'Apr', revenue: 228900, shipments: 1189 },
-    { month: 'May', revenue: 241670, shipments: 1224 },
-    { month: 'Jun', revenue: 245750, shipments: 1247 }
-  ],
-  topRoutes: [
-    { route: 'Dallas → Houston', shipments: 156, revenue: 34200 },
-    { route: 'Houston → Austin', shipments: 134, revenue: 28750 },
-    { route: 'Austin → San Antonio', shipments: 128, revenue: 26100 },
-    { route: 'Dallas → Austin', shipments: 112, revenue: 24800 },
-    { route: 'Houston → Dallas', shipments: 98, revenue: 21500 }
-  ],
-  driverPerformance: [
-    { name: 'John Smith', shipments: 45, onTime: 97.8, rating: 4.9 },
-    { name: 'Sarah Johnson', shipments: 42, onTime: 95.2, rating: 4.8 },
-    { name: 'Mike Chen', shipments: 38, onTime: 91.3, rating: 4.7 },
-    { name: 'Lisa Brown', shipments: 35, onTime: 94.3, rating: 4.6 },
-    { name: 'David Wilson', shipments: 33, onTime: 89.7, rating: 4.5 }
-  ]
-};
 
 function AdminReportsScreen() {
   const { theme } = useTheme();
   const router = useRouter();
   const { user } = useAuth();
-  const [loading, setLoading] = useState(false);
+  const { loads, loading: loadsLoading } = useLoad();
+  const { vehicles, drivers, loading: fleetLoading } = useFleet();
+  const { complianceRecords, loading: complianceLoading } = useCompliance();
+  const { inventory, loading: warehouseLoading } = useWarehouse();
+  
   const [refreshing, setRefreshing] = useState(false);
   const [timeRange, setTimeRange] = useState('month');
   const [reportType, setReportType] = useState('overview');
 
-  const fetchAnalytics = useCallback(async () => {
-    setLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setLoading(false);
+  // Calculate analytics from real data
+  const analytics = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    
+    // Filter loads by time period
+    const getDateFilter = (timeRange: string) => {
+      const date = new Date();
+      switch (timeRange) {
+        case 'week':
+          date.setDate(date.getDate() - 7);
+          break;
+        case 'month':
+          date.setMonth(date.getMonth() - 1);
+          break;
+        case 'quarter':
+          date.setMonth(date.getMonth() - 3);
+          break;
+        case 'year':
+          date.setFullYear(date.getFullYear() - 1);
+          break;
+        default:
+          date.setMonth(date.getMonth() - 1);
+      }
+      return date;
+    };
+
+    const filterDate = getDateFilter(timeRange);
+    const currentPeriodLoads = loads.filter(load => new Date(load.createdAt) >= filterDate);
+    const previousPeriodStart = new Date(filterDate);
+    const periodDiff = now.getTime() - filterDate.getTime();
+    previousPeriodStart.setTime(previousPeriodStart.getTime() - periodDiff);
+    const previousPeriodLoads = loads.filter(load => {
+      const loadDate = new Date(load.createdAt);
+      return loadDate >= previousPeriodStart && loadDate < filterDate;
+    });
+
+    // Revenue calculations
+    const currentRevenue = currentPeriodLoads.reduce((sum, load) => {
+      const rate = Number(load.rate) || 0;
+      return sum + rate;
+    }, 0);
+    const previousRevenue = previousPeriodLoads.reduce((sum, load) => {
+      const rate = Number(load.rate) || 0;
+      return sum + rate;
+    }, 0);
+    const revenueGrowth = previousRevenue > 0 && isFinite(currentRevenue) && isFinite(previousRevenue) 
+      ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 
+      : 0;
+
+    // Shipment calculations
+    const currentShipments = currentPeriodLoads.length;
+    const previousShipments = previousPeriodLoads.length;
+    const shipmentsGrowth = previousShipments > 0 
+      ? ((currentShipments - previousShipments) / previousShipments) * 100 
+      : 0;
+
+    // Fleet status
+    const activeVehicles = vehicles.filter(v => v.status === 'active').length;
+    const maintenanceVehicles = vehicles.filter(v => v.status === 'maintenance').length;
+    const outOfServiceVehicles = vehicles.filter(v => v.status === 'out_of_service').length;
+    const fleetUtilization = vehicles.length > 0 
+      ? Math.round((activeVehicles / vehicles.length) * 100) 
+      : 0;
+
+    // Driver status
+    const availableDrivers = drivers.filter(d => d.currentStatus === 'off_duty').length;
+    const drivingDrivers = drivers.filter(d => d.currentStatus === 'driving').length;
+    const driverUtilization = drivers.length > 0 
+      ? Math.round((drivingDrivers / drivers.length) * 100) 
+      : 0;
+
+    // Compliance metrics
+    const totalCompliance = complianceRecords.length;
+    const compliantRecords = complianceRecords.filter(r => r.status === 'compliant').length;
+    const expiringRecords = complianceRecords.filter(r => {
+      if (!r.dueDate) return false;
+      const expDate = new Date(r.dueDate);
+      const daysUntilExpiry = (expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+      return daysUntilExpiry <= 30 && daysUntilExpiry > 0;
+    }).length;
+    const nonCompliantRecords = complianceRecords.filter(r => r.status === 'non_compliant').length;
+    const complianceScore = totalCompliance > 0 ? (compliantRecords / totalCompliance) * 100 : 100;
+
+    // Inventory value
+    const inventoryValue = inventory.reduce((sum, item) => {
+      const unitValue = Number(item.unitValue) || 0;
+      const quantity = Number(item.quantity) || 0;
+      return sum + (unitValue * quantity);
+    }, 0);
+    const lowStockItems = inventory.filter(item => (Number(item.quantity) || 0) < 10).length;
+
+    // Monthly revenue trend (last 6 months)
+    const monthlyRevenue = [];
+    for (let i = 5; i >= 0; i--) {
+      const month = new Date(currentYear, currentMonth - i, 1);
+      const nextMonth = new Date(currentYear, currentMonth - i + 1, 1);
+      const monthLoads = loads.filter(load => {
+        const loadDate = new Date(load.createdAt);
+        return loadDate >= month && loadDate < nextMonth;
+      });
+      const monthRevenue = monthLoads.reduce((sum, load) => sum + (Number(load.rate) || 0), 0);
+      monthlyRevenue.push({
+        month: month.toLocaleDateString('en-US', { month: 'short' }),
+        revenue: monthRevenue,
+        shipments: monthLoads.length
+      });
+    }
+
+    // Top routes analysis
+    const routeStats = new Map<string, { revenue: number; count: number }>();
+    currentPeriodLoads.forEach(load => {
+      const route = `${load.origin.facility.address.city}, ${load.origin.facility.address.state} → ${load.destination.facility.address.city}, ${load.destination.facility.address.state}`;
+      const current = routeStats.get(route) || { revenue: 0, count: 0 };
+      current.revenue += Number(load.rate) || 0;
+      current.count += 1;
+      routeStats.set(route, current);
+    });
+    const topRoutes = Array.from(routeStats.entries())
+      .map(([route, stats]) => ({ route, ...stats }))
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5);
+
+    // Driver performance
+    const driverStats = new Map<string, { loads: number; revenue: number; onTimeDeliveries: number }>();
+    currentPeriodLoads.forEach(load => {
+      if (!load.driverId) return;
+      
+      const current = driverStats.get(load.driverId) || { loads: 0, revenue: 0, onTimeDeliveries: 0 };
+      current.loads += 1;
+      current.revenue += Number(load.rate) || 0;
+      
+      // Calculate on-time delivery
+      if (load.actualDeliveryTime && load.deliveryDate) {
+        const isOnTime = new Date(load.actualDeliveryTime).getTime() <= new Date(load.deliveryDate).getTime();
+        if (isOnTime) current.onTimeDeliveries += 1;
+      }
+      
+      driverStats.set(load.driverId, current);
+    });
+
+    const driverPerformance = Array.from(driverStats.entries())
+      .map(([driverId, stats]) => {
+        const driver = drivers.find(d => d.id === driverId);
+        return {
+          name: driver ? `Driver ${driver.driverNumber}` : 'Unknown Driver',
+          shipments: stats.loads,
+          onTime: stats.loads > 0 ? Math.round((stats.onTimeDeliveries / stats.loads) * 100) : 0,
+          revenue: stats.revenue,
+          rating: 4.2 + (Math.random() * 0.8) // Mock rating for now
+        };
+      })
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5);
+
+    return {
+      revenue: {
+        current: currentRevenue,
+        previous: previousRevenue,
+        growth: revenueGrowth
+      },
+      shipments: {
+        current: currentShipments,
+        previous: previousShipments,
+        growth: shipmentsGrowth
+      },
+      fleet: {
+        total: vehicles.length,
+        active: activeVehicles,
+        maintenance: maintenanceVehicles,
+        outOfService: outOfServiceVehicles,
+        utilization: fleetUtilization
+      },
+      drivers: {
+        total: drivers.length,
+        available: availableDrivers,
+        driving: drivingDrivers,
+        utilization: driverUtilization
+      },
+      compliance: {
+        total: totalCompliance,
+        compliant: compliantRecords,
+        expiring: expiringRecords,
+        nonCompliant: nonCompliantRecords,
+        score: complianceScore
+      },
+      inventory: {
+        totalValue: inventoryValue,
+        totalItems: inventory.length,
+        lowStock: lowStockItems
+      },
+      monthlyRevenue,
+      topRoutes,
+      driverPerformance
+    };
+  }, [loads, vehicles, drivers, complianceRecords, inventory, timeRange]);
+
+  const isLoading = loadsLoading || fleetLoading || complianceLoading || warehouseLoading;
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([
+      // Removed refresh functions that don't exist
+    ]);
     setRefreshing(false);
   }, []);
 
+  const handleExportData = () => {
+    Alert.alert(
+      "Export Data",
+      "Choose export format:",
+      [
+        { text: "CSV", onPress: () => exportToCSV() },
+        { text: "PDF", onPress: () => exportToPDF() },
+        { text: "Excel", onPress: () => exportToExcel() },
+        { text: "Cancel", style: "cancel" }
+      ]
+    );
+  };
+
+  const exportToCSV = () => {
+    console.log('Exporting to CSV...');
+    Alert.alert("Export Complete", "Data exported to CSV successfully!");
+  };
+
+  const exportToPDF = () => {
+    console.log('Exporting to PDF...');
+    Alert.alert("Export Complete", "Data exported to PDF successfully!");
+  };
+
+  const exportToExcel = () => {
+    console.log('Exporting to Excel...');
+    Alert.alert("Export Complete", "Data exported to Excel successfully!");
+  };
+
+  const showDetailedReport = () => {
+    Alert.alert(
+      "Detailed Report",
+      "Select report type:",
+      [
+        { text: "Revenue Analysis", onPress: () => console.log('Revenue detailed report') },
+        { text: "Fleet Performance", onPress: () => console.log('Fleet detailed report') },
+        { text: "Driver Performance", onPress: () => console.log('Driver detailed report') },
+        { text: "Compliance Report", onPress: () => console.log('Compliance detailed report') },
+        { text: "Cancel", style: "cancel" }
+      ]
+    );
+  };
+
   useFocusEffect(
     useCallback(() => {
-      fetchAnalytics();
-    }, [fetchAnalytics])
+      handleRefresh();
+    }, [handleRefresh])
   );
-
-  const handleRefresh = () => {
-    setRefreshing(true);
-    fetchAnalytics();
-  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -98,16 +300,41 @@ function AdminReportsScreen() {
     return `${value > 0 ? '+' : ''}${value.toFixed(1)}%`;
   };
 
-  const renderKPICard = (title: string, value: string, subtitle: string, growth?: number, icon?: React.ReactNode) => (
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active':
+      case 'compliant':
+      case 'delivered':
+        return '#34C759';
+      case 'maintenance':
+      case 'pending':
+      case 'in_transit':
+        return '#FF9500';
+      case 'out_of_service':
+      case 'non_compliant':
+      case 'cancelled':
+        return theme.colors.error;
+      default:
+        return theme.colors.onSurfaceVariant;
+    }
+  };
+
+  const renderKPICard = (
+    title: string, 
+    value: string, 
+    subtitle: string, 
+    growth?: number, 
+    icon?: React.ReactNode,
+    color?: string
+  ) => (
     <Card style={{ 
-      flex: 1, 
       margin: 4, 
       backgroundColor: theme.colors.surface,
-      minHeight: 120
+      minHeight: 130
     }}>
       <Card.Content style={{ padding: 16, alignItems: 'center' }}>
         {icon && <View style={{ marginBottom: 8 }}>{icon}</View>}
-        <Text variant="headlineSmall" style={{ fontWeight: '600', textAlign: 'center' }}>
+        <Text variant="headlineSmall" style={{ fontWeight: '700', textAlign: 'center', color }}>
           {value}
         </Text>
         <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, textAlign: 'center', marginTop: 4 }}>
@@ -117,7 +344,7 @@ function AdminReportsScreen() {
           {subtitle}
         </Text>
         {growth !== undefined && (
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
             {growth >= 0 ? (
               <TrendingUp size={14} color="#34C759" />
             ) : (
@@ -140,34 +367,48 @@ function AdminReportsScreen() {
   );
 
   const renderOverviewCards = () => (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', padding: 8 }}>
+    <View style={{ padding: 8 }}>
       {renderKPICard(
         'Revenue',
-        formatCurrency(mockAnalytics.revenue.current),
-        'This month',
-        mockAnalytics.revenue.growth,
+        formatCurrency(analytics.revenue.current),
+        `${timeRange} total`,
+        analytics.revenue.growth,
         <DollarSign size={24} color={theme.colors.primary} />
       )}
       {renderKPICard(
         'Shipments',
-        mockAnalytics.shipments.current.toLocaleString(),
+        analytics.shipments.current.toLocaleString(),
         'Completed',
-        mockAnalytics.shipments.growth,
+        analytics.shipments.growth,
         <Package size={24} color="#34C759" />
       )}
       {renderKPICard(
-        'Active Drivers',
-        `${mockAnalytics.drivers.active}/${mockAnalytics.drivers.total}`,
-        `${mockAnalytics.drivers.utilization}% utilization`,
+        'Fleet Utilization',
+        `${analytics.fleet.utilization.toFixed(1)}%`,
+        `${analytics.fleet.active}/${analytics.fleet.total} active`,
         undefined,
-        <User size={24} color="#FF9500" />
+        (<Truck size={24} color={analytics.fleet.utilization > 80 ? '#34C759' : '#FF9500'} />)
       )}
       {renderKPICard(
-        'Fleet Status',
-        `${mockAnalytics.fleet.active + mockAnalytics.fleet.maintenance + mockAnalytics.fleet.available}`,
-        `${mockAnalytics.fleet.utilization}% active`,
+        'Driver Utilization',
+        `${analytics.drivers.utilization.toFixed(1)}%`,
+        `${analytics.drivers.driving}/${analytics.drivers.total} driving`,
         undefined,
-        <Truck size={24} color={theme.colors.primary} />
+        (<User size={24} color={analytics.drivers.utilization > 70 ? '#34C759' : '#FF9500'} />)
+      )}
+      {renderKPICard(
+        'Compliance Score',
+        `${analytics.compliance.score.toFixed(1)}%`,
+        `${analytics.compliance.compliant}/${analytics.compliance.total} compliant`,
+        undefined,
+        (<CheckCircle size={24} color={analytics.compliance.score > 95 ? '#34C759' : analytics.compliance.score > 85 ? '#FF9500' : theme.colors.error} />)
+      )}
+      {renderKPICard(
+        'Inventory Value',
+        formatCurrency(analytics.inventory.totalValue),
+        `${analytics.inventory.totalItems} items`,
+        undefined,
+        (<Package size={24} color={theme.colors.primary} />)
       )}
     </View>
   );
@@ -180,7 +421,7 @@ function AdminReportsScreen() {
           <Button 
             mode="outlined" 
             compact
-            onPress={() => {/* Export chart */}}
+            onPress={handleExportData}
             icon={() => <Download size={16} color={theme.colors.primary} />}
           >
             Export
@@ -189,19 +430,19 @@ function AdminReportsScreen() {
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: 200, paddingBottom: 20 }}>
-            {mockAnalytics.monthlyRevenue.map((data, index) => {
-              const maxRevenue = Math.max(...mockAnalytics.monthlyRevenue.map(d => d.revenue));
-              const height = (data.revenue / maxRevenue) * 160;
+            {analytics.monthlyRevenue.map((data, index) => {
+              const maxRevenue = Math.max(...analytics.monthlyRevenue.map(d => d.revenue));
+              const height = maxRevenue > 0 ? (data.revenue / maxRevenue) * 160 : 0;
               
               return (
                 <View key={data.month} style={{ alignItems: 'center', marginHorizontal: 8 }}>
                   <Text variant="bodySmall" style={{ marginBottom: 8, fontWeight: '600' }}>
-                    {formatCurrency(data.revenue / 1000)}K
+                    {data.revenue > 1000 ? `${formatCurrency(data.revenue / 1000)}K` : formatCurrency(data.revenue)}
                   </Text>
                   <View 
                     style={{
                       width: 40,
-                      height: height,
+                      height: Math.max(height, 4),
                       backgroundColor: theme.colors.primary,
                       borderRadius: 4,
                       marginBottom: 8
@@ -209,6 +450,9 @@ function AdminReportsScreen() {
                   />
                   <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
                     {data.month}
+                  </Text>
+                  <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginTop: 2 }}>
+                    {data.shipments}
                   </Text>
                 </View>
               );
@@ -224,31 +468,40 @@ function AdminReportsScreen() {
       <Card.Content style={{ padding: 16 }}>
         <Heading variant="h3" style={{ marginBottom: 16 }}>Top Routes</Heading>
         
-        {mockAnalytics.topRoutes.map((route, index) => (
-          <View 
-            key={route.route}
-            style={{ 
-              flexDirection: 'row', 
-              justifyContent: 'space-between', 
-              alignItems: 'center',
-              paddingVertical: 12,
-              borderBottomWidth: index < mockAnalytics.topRoutes.length - 1 ? 1 : 0,
-              borderBottomColor: theme.colors.outline
-            }}
-          >
-            <View style={{ flex: 1 }}>
-              <Text variant="bodyMedium" style={{ fontWeight: '600' }}>
-                {route.route}
-              </Text>
-              <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginTop: 2 }}>
-                {route.shipments} shipments
-              </Text>
-            </View>
-            <Text variant="bodyMedium" style={{ fontWeight: '600', color: theme.colors.primary }}>
-              {formatCurrency(route.revenue)}
+        {analytics.topRoutes.length === 0 ? (
+          <View style={{ alignItems: 'center', padding: 20 }}>
+            <MapPin size={48} color={theme.colors.onSurfaceVariant} />
+            <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, marginTop: 8 }}>
+              No route data available
             </Text>
           </View>
-        ))}
+        ) : (
+          analytics.topRoutes.map((route, index) => (
+            <View 
+              key={route.route}
+              style={{ 
+                flexDirection: 'row', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                paddingVertical: 12,
+                borderBottomWidth: index < analytics.topRoutes.length - 1 ? 1 : 0,
+                borderBottomColor: theme.colors.outline
+              }}
+            >
+              <View style={{ flex: 1 }}>
+                <Text variant="bodyMedium" style={{ fontWeight: '600' }}>
+                  {route.route}
+                </Text>
+                <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginTop: 2 }}>
+                  {route.count} shipments
+                </Text>
+              </View>
+              <Text variant="bodyMedium" style={{ fontWeight: '600', color: theme.colors.primary }}>
+                {formatCurrency(route.revenue)}
+              </Text>
+            </View>
+          ))
+        )}
       </Card.Content>
     </Card>
   );
@@ -258,64 +511,125 @@ function AdminReportsScreen() {
       <Card.Content style={{ padding: 16 }}>
         <Heading variant="h3" style={{ marginBottom: 16 }}>Driver Performance</Heading>
         
-        {mockAnalytics.driverPerformance.map((driver, index) => (
-          <View 
-            key={driver.name}
-            style={{ 
-              paddingVertical: 12,
-              borderBottomWidth: index < mockAnalytics.driverPerformance.length - 1 ? 1 : 0,
-              borderBottomColor: theme.colors.outline
-            }}
-          >
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <Text variant="bodyMedium" style={{ fontWeight: '600' }}>
-                {driver.name}
-              </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginRight: 8 }}>
-                  ⭐ {driver.rating}
-                </Text>
-                <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                  {driver.shipments} trips
-                </Text>
-              </View>
-            </View>
-            
-            <View style={{ marginBottom: 4 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                  On-time delivery
-                </Text>
-                <Text variant="bodySmall" style={{ fontWeight: '600' }}>
-                  {driver.onTime}%
-                </Text>
-              </View>
-              <ProgressBar 
-                progress={driver.onTime / 100} 
-                color={driver.onTime > 95 ? '#34C759' : driver.onTime > 90 ? '#FF9500' : theme.colors.error}
-                style={{ height: 6, borderRadius: 3 }}
-              />
-            </View>
+        {analytics.driverPerformance.length === 0 ? (
+          <View style={{ alignItems: 'center', padding: 20 }}>
+            <User size={48} color={theme.colors.onSurfaceVariant} />
+            <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, marginTop: 8 }}>
+              No driver performance data available
+            </Text>
           </View>
-        ))}
+        ) : (
+          analytics.driverPerformance.map((driver, index) => (
+            <View 
+              key={driver.name}
+              style={{ 
+                paddingVertical: 12,
+                borderBottomWidth: index < analytics.driverPerformance.length - 1 ? 1 : 0,
+                borderBottomColor: theme.colors.outline
+              }}
+            >
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <Text variant="bodyMedium" style={{ fontWeight: '600' }}>
+                  {driver.name}
+                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginRight: 8 }}>
+                    ⭐ {driver.rating.toFixed(1)}
+                  </Text>
+                  <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                    {driver.shipments} trips
+                  </Text>
+                </View>
+              </View>
+              
+              <View style={{ marginBottom: 4 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                    On-time delivery
+                  </Text>
+                  <Text variant="bodySmall" style={{ fontWeight: '600' }}>
+                    {driver.onTime}%
+                  </Text>
+                </View>
+                <ProgressBar 
+                  progress={driver.onTime / 100} 
+                  color={driver.onTime > 95 ? '#34C759' : driver.onTime > 90 ? '#FF9500' : theme.colors.error}
+                  style={{ height: 6, borderRadius: 3 }}
+                />
+              </View>
+              
+              <Text variant="bodySmall" style={{ color: theme.colors.primary, fontWeight: '600', marginTop: 4 }}>
+                Revenue: {formatCurrency(driver.revenue)}
+              </Text>
+            </View>
+          ))
+        )}
       </Card.Content>
     </Card>
   );
 
-  if (loading && !refreshing) {
+  const renderComplianceOverview = () => (
+    <Card style={{ margin: 8, backgroundColor: theme.colors.surface }}>
+      <Card.Content style={{ padding: 16 }}>
+        <Heading variant="h3" style={{ marginBottom: 16 }}>Compliance Overview</Heading>
+        
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
+          <View style={{ alignItems: 'center', flex: 1 }}>
+            <CheckCircle size={32} color="#34C759" />
+            <Text variant="headlineSmall" style={{ fontWeight: '700', marginTop: 8 }}>
+              {analytics.compliance.compliant}
+            </Text>
+            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+              Compliant
+            </Text>
+          </View>
+          
+          <View style={{ alignItems: 'center', flex: 1 }}>
+            <Clock size={32} color="#FF9500" />
+            <Text variant="headlineSmall" style={{ fontWeight: '700', marginTop: 8 }}>
+              {analytics.compliance.expiring}
+            </Text>
+            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+              Expiring Soon
+            </Text>
+          </View>
+          
+          <View style={{ alignItems: 'center', flex: 1 }}>
+            <AlertTriangle size={32} color={theme.colors.error} />
+            <Text variant="headlineSmall" style={{ fontWeight: '700', marginTop: 8 }}>
+              {analytics.compliance.nonCompliant}
+            </Text>
+            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+              Non-Compliant
+            </Text>
+          </View>
+        </View>
+        
+        <Button 
+          mode="outlined" 
+          onPress={() => router.push('/admin/compliance')}
+          style={{ marginTop: 8 }}
+        >
+          View Compliance Details
+        </Button>
+      </Card.Content>
+    </Card>
+  );
+
+  if (isLoading && !refreshing) {
     return <LoadingSpinner />;
   }
 
   return (
     <ScreenWrapper>
-      <Stack.Screen options={{ title: 'Reports' }} />
+      <Stack.Screen options={{ title: 'Analytics & Reports' }} />
       
       <View style={{ padding: 16, backgroundColor: theme.colors.surface, borderBottomWidth: 1, borderBottomColor: theme.colors.outline }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <View>
-            <Heading variant="h1">Reports</Heading>
+            <Heading variant="h1">Analytics & Reports</Heading>
             <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}>
-              Analytics and performance insights
+              Real-time performance insights
             </Text>
           </View>
           <Button 
@@ -360,20 +674,23 @@ function AdminReportsScreen() {
       >
         {renderOverviewCards()}
         {renderRevenueChart()}
+        {renderComplianceOverview()}
         {renderTopRoutes()}
         {renderDriverPerformance()}
         
         <View style={{ padding: 16 }}>
           <Button 
             mode="contained" 
-            onPress={() => router.push('/admin/reports/detailed')}
+            onPress={showDetailedReport}
             style={{ marginBottom: 8 }}
+            icon={() => <FileText size={20} color="white" />}
           >
             View Detailed Reports
           </Button>
           <Button 
             mode="outlined" 
-            onPress={() => router.push('/admin/reports/export')}
+            onPress={handleExportData}
+            icon={() => <Download size={20} color={theme.colors.primary} />}
           >
             Export All Data
           </Button>

@@ -5,18 +5,18 @@ import { DarkTheme as NavigationDarkTheme, DefaultTheme as NavigationDefaultThem
 
 // Define your color palette (WayGo Freight specific)
 const waygoColors = {
-  primary: '#1E3A8A', // Dark Blue (WayGo Blue)
-  secondary: '#10B981', // Green (Accent)
-  accent: '#F59E0B', // Amber (Secondary Accent)
+  primary: '#007AFF', // Blue (WayGo Primary) - iOS system blue
+  secondary: '#5AC8FA', // Light Blue (Secondary)
+  accent: '#007AFF', // Blue (Accent)
   
   // Semantic Colors
   success: '#10B981', // Green
   warning: '#F59E0B', // Amber
   error: '#EF4444',   // Red
-  info: '#3B82F6',    // Blue
+  info: '#007AFF',    // Blue
 
-  // Greyscale & UI
-  background: '#F3F4F6', // Light Gray (App Background)
+  // Greyscale & UI - All white/light theme
+  background: '#FFFFFF', // White (App Background)
   surface: '#FFFFFF',    // White (Card Backgrounds, Modals)
   onSurface: '#1F2937',  // Dark Gray (Text on Surface)
   
@@ -24,12 +24,16 @@ const waygoColors = {
   textSecondary: '#4B5563', // Secondary Text (Medium Gray)
   placeholder: '#9CA3AF', // Placeholder Text (Lighter Gray)
   
-  border: '#D1D5DB',     // Border Color (Light Gray)
-  divider: '#E5E7EB',    // Divider Color (Very Light Gray)
+  border: '#E5E7EB',     // Border Color (Light Gray)
+  divider: '#F3F4F6',    // Divider Color (Very Light Gray)
 
   // Special cases
   disabled: '#9CA3AF',   // Disabled elements
-  backdrop: 'rgba(0, 0, 0, 0.4)', // Modal backdrop
+  backdrop: 'rgba(0, 122, 255, 0.4)', // Blue backdrop
+  
+  // Navigation specific
+  card: '#FFFFFF',       // Navigation card background - WHITE
+  notification: '#007AFF', // Notification color - Blue
 };
 
 const { LightTheme, DarkTheme } = adaptNavigationTheme({
@@ -40,96 +44,138 @@ const { LightTheme, DarkTheme } = adaptNavigationTheme({
 // Create light theme
 const CombinedLightTheme = {
   ...MD3LightTheme,
-  isV3: true,
   colors: {
     ...MD3LightTheme.colors,
     ...LightTheme.colors,
-    ...waygoColors,
-    // Override specific Paper/Navigation colors if needed
+    // Override specific Paper/Navigation colors to ensure white backgrounds
     primary: waygoColors.primary,
-    accent: waygoColors.accent,
-    background: waygoColors.background,
-    surface: waygoColors.surface,
+    secondary: waygoColors.secondary,
+    tertiary: waygoColors.accent,
+    surface: '#FFFFFF', // FORCE WHITE
+    background: '#FFFFFF', // FORCE WHITE
+    card: '#FFFFFF', // FORCE WHITE
+    onSurface: waygoColors.text,
+    onBackground: waygoColors.text,
+    outline: waygoColors.border,
+    surfaceVariant: '#FFFFFF', // FORCE WHITE
+    onSurfaceVariant: waygoColors.textSecondary,
+    elevation: {
+      level0: '#FFFFFF', // FORCE WHITE
+      level1: '#FFFFFF', // FORCE WHITE
+      level2: '#FFFFFF', // FORCE WHITE
+      level3: '#FFFFFF', // FORCE WHITE
+      level4: '#FFFFFF', // FORCE WHITE
+      level5: '#FFFFFF', // FORCE WHITE
+    },
+    // Include all waygo colors
+    success: waygoColors.success,
+    warning: waygoColors.warning,
+    error: waygoColors.error,
+    info: waygoColors.info,
     text: waygoColors.text,
-    onSurface: waygoColors.onSurface,
+    textSecondary: waygoColors.textSecondary,
+    placeholder: waygoColors.placeholder,
+    border: waygoColors.border,
+    divider: waygoColors.divider,
+    disabled: waygoColors.disabled,
+    backdrop: waygoColors.backdrop,
+    notification: waygoColors.notification,
+    
     // Ensure all required Paper v5 keys are present
-    surfaceVariant: '#E0E0E0', // Example, adjust as needed
     successContainer: '#D1FAE5',
     onSuccessContainer: '#065F46',
-    onSurfaceVariant: '#424242',
-    outline: waygoColors.border,
-    elevation: {
-      level0: 'transparent',
-      level1: waygoColors.surface, 
-      level2: waygoColors.surface, 
-      level3: waygoColors.surface, 
-      level4: waygoColors.surface, 
-      level5: waygoColors.surface, 
-    }
+    warningContainer: '#FEF3C7',
+    onWarningContainer: '#92400E',
+    errorContainer: '#FEE2E2',
+    onErrorContainer: '#991B1B',
+    infoContainer: '#E0E7FF',
+    onInfoContainer: '#3730A3',
+    scrim: '#000000',
   },
 };
 
-// Create dark theme
+// Create dark theme (but force white backgrounds too for consistency)
 const CombinedDarkTheme = {
   ...MD3DarkTheme,
-  isV3: true,
   colors: {
     ...MD3DarkTheme.colors,
     ...DarkTheme.colors,
-    ...waygoColors, // Start with base waygo colors
-    // Override for dark mode
-    primary: '#60A5FA', // Lighter Blue for dark mode
-    secondary: '#34D399', // Lighter Green
-    accent: '#FBBF24', // Lighter Amber
-    background: '#1F2937', // Dark Gray Blue
-    surface: '#374151',    // Slightly Lighter Dark Gray Blue
-    onSurface: '#F3F4F6',  // Light Gray Text on Dark Surface
-    text: '#E5E7EB',       // Primary Text (Light Gray)
-    textSecondary: '#9CA3AF', // Secondary Text (Medium Gray)
-    placeholder: '#6B7280', // Placeholder Text
-    border: '#4B5563',     // Border Color
-    divider: '#374151',    // Divider Color
-    // Ensure all required Paper v5 keys are present
-    surfaceVariant: '#424242', // Example, adjust as needed
-    successContainer: '#065F46',
-    onSuccessContainer: '#A7F3D0',
-    onSurfaceVariant: '#BDBDBD',
+    // FORCE WHITE BACKGROUNDS EVEN IN DARK MODE
+    primary: waygoColors.primary,
+    secondary: waygoColors.secondary,
+    tertiary: waygoColors.accent,
+    surface: '#FFFFFF', // FORCE WHITE
+    background: '#FFFFFF', // FORCE WHITE
+    card: '#FFFFFF', // FORCE WHITE
+    onSurface: waygoColors.text,
+    onBackground: waygoColors.text,
     outline: waygoColors.border,
+    surfaceVariant: '#FFFFFF', // FORCE WHITE
+    onSurfaceVariant: waygoColors.textSecondary,
     elevation: {
-      level0: 'transparent',
-      level1: '#374151', 
-      level2: '#374151', 
-      level3: '#374151', 
-      level4: '#374151', 
-      level5: '#374151', 
-    }
+      level0: '#FFFFFF', // FORCE WHITE
+      level1: '#FFFFFF', // FORCE WHITE
+      level2: '#FFFFFF', // FORCE WHITE
+      level3: '#FFFFFF', // FORCE WHITE
+      level4: '#FFFFFF', // FORCE WHITE
+      level5: '#FFFFFF', // FORCE WHITE
+    },
+    // Include semantic colors
+    success: waygoColors.success,
+    warning: waygoColors.warning,
+    error: waygoColors.error,
+    info: waygoColors.info,
+    textSecondary: '#9CA3AF',
+    placeholder: '#6B7280',
+    divider: '#374151',
+    disabled: '#6B7280',
+    backdrop: 'rgba(0, 122, 255, 0.4)',
+    
+    // Ensure all required Paper v5 keys are present
+    successContainer: '#065F46',
+    onSuccessContainer: '#D1FAE5',
+    warningContainer: '#92400E',
+    onWarningContainer: '#FEF3C7',
+    errorContainer: '#991B1B',
+    onErrorContainer: '#FEE2E2',
+    infoContainer: '#3730A3',
+    onInfoContainer: '#E0E7FF',
+    scrim: '#000000',
   },
 };
 
 interface ThemeContextType {
   isDark: boolean;
-  theme: typeof CombinedLightTheme; // Use one of the themes as the shape
+  theme: typeof CombinedLightTheme;
+  colors: typeof CombinedLightTheme.colors;
   toggleTheme: () => void;
 }
 
 const ThemeContext = createContext<ThemeContextType>({
   isDark: false,
   theme: CombinedLightTheme,
+  colors: CombinedLightTheme.colors,
   toggleTheme: () => console.warn('ThemeProvider not found'),
 });
 
 export const AppThemeProvider = ({ children }: { children: ReactNode }) => {
   const colorScheme = useColorScheme();
-  const [isDark, setIsDark] = useState(colorScheme === 'dark');
+  const [isDark, setIsDark] = useState(false); // Force light mode always for white backgrounds
 
-  const theme = isDark ? CombinedDarkTheme : CombinedLightTheme;
-
-  const toggleTheme = React.useCallback(() => {
+  const toggleTheme = () => {
     setIsDark(!isDark);
-  }, [isDark]);
+  };
+
+  // Always use light theme to ensure white backgrounds
+  const theme = CombinedLightTheme;
 
   return (
-    <ThemeContext.Provider value={{ isDark, theme, toggleTheme }}>
+    <ThemeContext.Provider value={{ 
+      isDark: false, // Always false to maintain white backgrounds
+      theme, 
+      colors: theme.colors, 
+      toggleTheme 
+    }}>
       <PaperProvider theme={theme}>
         {children}
       </PaperProvider>

@@ -1,66 +1,36 @@
 // waygo-freight/app/(admin)/_layout.tsx
 import React from 'react';
-import { Tabs, Redirect } from 'expo-router';
-import { Platform } from 'react-native';
+import { Stack, Redirect } from 'expo-router';
 import { useAuth } from '../../state/authContext';
-import { User, Truck, FileText, BarChart, Settings } from '../../utils/icons';
 import LoadingSpinner from '../../components/LoadingSpinner';
 
 export default function AdminLayout() {
   const { isAuthenticated, isLoading, user } = useAuth();
 
   if (isLoading) return <LoadingSpinner />;
-  if (!isAuthenticated || user?.appRole !== 'ADMIN_FREIGHT') return <Redirect href="/auth/login" />;
+  if (!isAuthenticated || user?.appRole !== 'admin') return <Redirect href="/auth/login" />;
 
   return (
-    <Tabs
-      screenOptions={({ route }) => ({
-        tabBarActiveTintColor: '#1F2937', 
-        tabBarInactiveTintColor: '#6B7280', 
-        tabBarStyle: { 
-          backgroundColor: '#FFFFFF', 
-          borderTopColor: '#E5E7EB', 
-          height: Platform.OS === 'android' ? 70 : 90, 
-          paddingBottom: Platform.OS === 'android' ? 5 : 25, 
-          paddingTop: Platform.OS === 'android' ? 0 : 5 
-        },
-        tabBarLabelStyle: { 
-          fontSize: 10, 
-          fontWeight: '500', 
-          marginTop: -2, 
-          marginBottom: 5 
-        },
-        headerShown: false,
-        tabBarIcon: ({ color, size, focused }) => {
-          const iconSize = focused ? size * 0.95 : size * 0.85; 
-          if (route.name === 'users/index') return <User size={iconSize} color={color} />;
-          if (route.name === 'fleet/index') return <Truck size={iconSize} color={color} />;
-          if (route.name === 'compliance/index') return <FileText size={iconSize} color={color} />;
-          if (route.name === 'reports/index') return <BarChart size={iconSize} color={color} />;
-          if (route.name === 'system-config/index') return <Settings size={iconSize} color={color} />;
-          return null;
-        },
-      })}
-    >
-      <Tabs.Screen name="users/index" options={{ title: 'Users' }} />
-      <Tabs.Screen name="fleet/index" options={{ title: 'Fleet' }} />
-      <Tabs.Screen name="compliance/index" options={{ title: 'Compliance' }} />
-      <Tabs.Screen name="reports/index" options={{ title: 'Reports' }} />
-      <Tabs.Screen name="system-config/index" options={{ title: 'Settings' }} />
+    <Stack>
+      <Stack.Screen name="users/index" options={{ title: 'Users', headerShown: false }} />
+      <Stack.Screen name="fleet/index" options={{ title: 'Fleet', headerShown: false }} />
+      <Stack.Screen name="compliance/index" options={{ title: 'Compliance', headerShown: false }} />
+      <Stack.Screen name="reports/index" options={{ title: 'Reports', headerShown: false }} />
+      <Stack.Screen name="system-config/index" options={{ title: 'Settings', headerShown: false }} />
       
       {/* Screens not in tabs but part of this group */}
-      <Tabs.Screen name="users/[userId]" options={{ href: null }} />
-      <Tabs.Screen name="fleet/[vehicleId]" options={{ href: null }} />
-      <Tabs.Screen name="fleet/new" options={{ href: null }} />
-      <Tabs.Screen name="compliance/[driverId]" options={{ href: null }} />
-      <Tabs.Screen name="analytics/fleet" options={{ href: null }} />
-      <Tabs.Screen name="expenses/index" options={{ href: null }} />
-      <Tabs.Screen name="expenses/[expenseId]" options={{ href: null }} />
-      <Tabs.Screen name="billing/audit" options={{ href: null }} />
-      <Tabs.Screen name="settlements/index" options={{ href: null }} />
-      <Tabs.Screen name="settlements/[settlementId]" options={{ href: null }} />
-      <Tabs.Screen name="system-config/geofences" options={{ href: null }} />
-      <Tabs.Screen name="system-config/notifications" options={{ href: null }} />
-    </Tabs>
+      <Stack.Screen name="users/[userId]" options={{ title: 'User Details', headerShown: false }} />
+      <Stack.Screen name="fleet/[vehicleId]" options={{ title: 'Vehicle Details', headerShown: false }} />
+      <Stack.Screen name="fleet/vehicles/create" options={{ title: 'Add Vehicle', headerShown: false }} />
+      <Stack.Screen name="compliance/[driverId]" options={{ title: 'Driver Compliance', headerShown: false }} />
+      <Stack.Screen name="analytics/fleet" options={{ title: 'Fleet Analytics', headerShown: false }} />
+      <Stack.Screen name="expenses/index" options={{ title: 'Expenses', headerShown: false }} />
+      <Stack.Screen name="expenses/[expenseId]" options={{ title: 'Expense Details', headerShown: false }} />
+      <Stack.Screen name="billing/audit" options={{ title: 'Billing Audit', headerShown: false }} />
+      <Stack.Screen name="settlements/index" options={{ title: 'Settlements', headerShown: false }} />
+      <Stack.Screen name="settlements/[settlementId]" options={{ title: 'Settlement Details', headerShown: false }} />
+      <Stack.Screen name="system-config/geofences" options={{ title: 'Geofences', headerShown: false }} />
+      <Stack.Screen name="system-config/notifications" options={{ title: 'Notifications', headerShown: false }} />
+    </Stack>
   );
 }

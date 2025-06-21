@@ -1,5 +1,5 @@
 import React from 'react';
-import { Tabs, Redirect } from 'expo-router';
+import { Stack, Redirect } from 'expo-router';
 import { useAuth } from '../../state/authContext';
 import LoadingSpinner from '../../components/LoadingSpinner';
 
@@ -7,18 +7,16 @@ export default function DriverLayout() {
   const { isAuthenticated, isLoading, user } = useAuth();
 
   if (isLoading) return <LoadingSpinner />;
-  if (!isAuthenticated || user?.appRole !== 'DRIVER') {
-    return <Redirect href="/auth/login" />;
-  }
+  if (!isAuthenticated || user?.appRole !== 'driver') return <Redirect href="/auth/login" />;
 
   return (
-    <Tabs screenOptions={{ headerShown: false }}>
-      <Tabs.Screen name="index" options={{ title: 'Dashboard' }} />
-      <Tabs.Screen name="hos" options={{ title: 'HOS' }} />
-      <Tabs.Screen name="dvir" options={{ title: 'DVIR' }} />
-      <Tabs.Screen name="fuel-log" options={{ title: 'Fuel Log' }} />
-      <Tabs.Screen name="compliance" options={{ title: 'Compliance' }} />
-      <Tabs.Screen name="vehicle" options={{ title: 'Vehicle' }} />
-    </Tabs>
+    <Stack>
+      <Stack.Screen name="index" options={{ title: 'Dashboard', headerShown: false }} />
+      <Stack.Screen name="hos" options={{ title: 'HOS', headerShown: false }} />
+      <Stack.Screen name="dvir" options={{ title: 'DVIR', headerShown: false }} />
+      <Stack.Screen name="fuel-log" options={{ title: 'Fuel Log', headerShown: false }} />
+      <Stack.Screen name="compliance" options={{ title: 'Compliance', headerShown: false }} />
+      <Stack.Screen name="vehicle" options={{ title: 'Vehicle', headerShown: false }} />
+    </Stack>
   );
 }

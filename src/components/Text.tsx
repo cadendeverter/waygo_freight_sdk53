@@ -1,6 +1,6 @@
 import React, { ReactNode } from 'react';
 import { Text as RNText, StyleSheet, TextStyle, TextProps as RNTextProps, StyleProp } from 'react-native';
-import { useTheme } from '../../contexts/ThemeContext';
+import { useTheme } from '../../theme/ThemeContext';
 
 type TextVariant = 
   | 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6'
@@ -117,8 +117,43 @@ const Text: React.FC<TextProps> = ({
 }) => {
   const { theme } = useTheme();
   
+  // Helper function to get variant styles
+  function getVariantStyles(variant: TextVariant) {
+    const { fonts } = theme;
+    switch (variant) {
+      case 'h1':
+        return { fontSize: 32, fontWeight: 'bold' as const };
+      case 'h2':
+        return { fontSize: 28, fontWeight: 'bold' as const };
+      case 'h3':
+        return { fontSize: 24, fontWeight: '600' as const };
+      case 'h4':
+        return { fontSize: 20, fontWeight: '600' as const };
+      case 'h5':
+        return { fontSize: 18, fontWeight: '500' as const };
+      case 'h6':
+        return { fontSize: 16, fontWeight: '500' as const };
+      case 'subtitle1':
+        return { fontSize: 16, fontWeight: '400' as const };
+      case 'subtitle2':
+        return { fontSize: 14, fontWeight: '500' as const };
+      case 'body1':
+        return { fontSize: 16, fontWeight: '400' as const };
+      case 'body2':
+        return { fontSize: 14, fontWeight: '400' as const };
+      case 'button':
+        return { fontSize: 14, fontWeight: '500' as const };
+      case 'caption':
+        return { fontSize: 12, fontWeight: '400' as const };
+      case 'overline':
+        return { fontSize: 10, fontWeight: '400' as const };
+      default:
+        return { fontSize: 16, fontWeight: '400' as const };
+    }
+  }
+  
   // Get the base styles for the selected variant
-  const variantStyles = theme.typography[variant] || {};
+  const variantStyles = getVariantStyles(variant);
   
   // Determine the font family based on weight
   const getFontFamily = (): string => {
@@ -192,12 +227,12 @@ const Text: React.FC<TextProps> = ({
         return theme.colors.text;
       case 'subtitle1':
       case 'subtitle2':
-        return theme.colors.textSecondary;
+        return theme.colors.onSurface;
       case 'button':
-        return theme.colors.textOnPrimary;
+        return theme.colors.onPrimary;
       case 'caption':
       case 'overline':
-        return theme.colors.textTertiary;
+        return theme.colors.onSurfaceVariant;
       default:
         return theme.colors.text;
     }

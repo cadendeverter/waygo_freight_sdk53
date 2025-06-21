@@ -2,15 +2,11 @@ import { Platform } from 'react-native';
 import { auth, functions } from '../../firebase/config';
 
 import { httpsCallable } from 'firebase/functions';
-import { API_BASE_URL, IS_DEV } from '@env';
-
-
-
-
+import { config as appConfig } from '../../config/environment';
 
 // TODO: connectFunctionsEmulator(functions, 'localhost', 5001) if needed
 
-type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD';
 
 interface ApiResponse<T> {
   data?: T;
@@ -41,7 +37,7 @@ export const apiRequest = async <T>(
   body?: any,
   headers: Record<string, string> = {}
 ): Promise<T> => {
-  const url = `${API_BASE_URL}${endpoint}`;
+  const url = `${appConfig.apiBaseUrl}${endpoint}`;
   const token = await auth.currentUser?.getIdToken();
 
   const defaultHeaders: Record<string, string> = {

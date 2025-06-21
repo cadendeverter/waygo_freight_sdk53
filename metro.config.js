@@ -15,6 +15,19 @@ config.resolver = {
   assetExts: config.resolver.assetExts.filter((ext) => ext !== 'svg'),
   // Platform-specific extensions
   platforms: ['ios', 'android', 'native', 'web'],
+  // Block native-only modules on web
+  blockList: [
+    /.*\/node_modules\/@stripe\/stripe-react-native\/.*NativeCard.*\.js$/,
+    /.*\/node_modules\/react-native-maps\/.*Native.*\.js$/,
+  ],
+  alias: {
+    // Platform-specific aliases for web
+    ...(process.env.EXPO_PLATFORM === 'web' ? {
+      '@stripe/stripe-react-native': require.resolve('./utils/stripe.tsx'),
+      'react-native-maps': require.resolve('./utils/maps.tsx'),
+      'expo-location': require.resolve('./utils/location.tsx'),
+    } : {}),
+  },
 };
 
 // Add SVG transformer support

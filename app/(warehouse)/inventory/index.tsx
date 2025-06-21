@@ -1,250 +1,398 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import { View, StyleSheet, ScrollView, RefreshControl, FlatList, TouchableOpacity } from 'react-native';
 import { Stack, router } from 'expo-router';
-import { Text, Card, Button, useTheme, Searchbar, Chip } from 'react-native-paper';
-import { Package, BarChart, AlertCircle } from '../../../utils/icons';
+import { Text, Card, Button, useTheme, Searchbar, Chip, FAB, Menu, Divider, Badge } from 'react-native-paper';
+import { Package, BarChart, AlertCircle, Plus, MoreVertical, Edit, Trash, Archive, TrendingUp, TrendingDown } from '../../../utils/icons';
 import ScreenWrapper from '../../../components/ScreenWrapper';
 import Heading from '../../../components/typography/Heading';
+import { useWarehouse } from '../../../state/warehouseContext';
+import { useAuth } from '../../../state/authContext';
+import { InventoryItem } from '../../../types';
+import LoadingSpinner from '../../../components/LoadingSpinner';
 
-const mockInventoryData = [
-  {
-    id: 'INV001',
-    name: 'Electronics - Consumer',
-    sku: 'ELEC-001',
-    quantity: 150,
-    location: 'A-1-01',
-    value: '$45,000',
-    status: 'In Stock',
-    lastUpdated: '2024-01-15',
-    category: 'Electronics'
-  },
-  {
-    id: 'INV002',
-    name: 'Automotive Parts',
-    sku: 'AUTO-002',
-    quantity: 5,
-    location: 'B-2-03',
-    value: '$12,500',
-    status: 'Low Stock',
-    lastUpdated: '2024-01-14',
-    category: 'Automotive'
-  },
-  {
-    id: 'INV003',
-    name: 'Medical Supplies',
-    sku: 'MED-003',
-    quantity: 0,
-    location: 'C-1-05',
-    value: '$0',
-    status: 'Out of Stock',
-    lastUpdated: '2024-01-13',
-    category: 'Medical'
-  },
-  {
-    id: 'INV004',
-    name: 'Food & Beverage',
-    sku: 'FOOD-004',
-    quantity: 300,
-    location: 'D-3-02',
-    value: '$8,200',
-    status: 'In Stock',
-    lastUpdated: '2024-01-15',
-    category: 'Food'
+const getStockStatus = (item: InventoryItem) => {
+  if (item.quantityOnHand === 0) return 'Out of Stock';
+  if (item.quantityOnHand < 10) return 'Low Stock'; // Placeholder threshold
+  return 'In Stock';
+};
+
+const getStockStatusColor = (status: string, theme: any) => {
+  switch (status) {
+    case 'Out of Stock':
+      return theme.colors.error;
+    case 'Low Stock':
+      return '#FF9500'; // Orange color
+    case 'In Stock':
+      return '#34C759'; // Green color
+    default:
+      return theme.colors.outline;
   }
-];
+};
+
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+  }).format(amount);
+};
+
+const formatDate = (date: Date | string) => {
+  const d = new Date(date);
+  return d.toLocaleDateString('en-US', { 
+    month: 'short', 
+    day: 'numeric', 
+    year: 'numeric' 
+  });
+};
+
+interface InventoryCardProps {
+  item: InventoryItem;
+  onPress: () => void;
+  onMenuPress: () => void;
+}
+
+const InventoryCard: React.FC<InventoryCardProps> = ({ item, onPress, onMenuPress }) => {
+  const theme = useTheme();
+  const stockStatus = getStockStatus(item);
+  const totalValue = item.quantityOnHand * item.unitValue;
+  
+  return (
+    <Card style={{ marginBottom: 16 }} onPress={onPress}>
+      <Card.Content>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+          <View style={{ flex: 1 }}>
+            <Text variant="titleMedium" style={{ fontWeight: '600', marginBottom: 4 }}>
+              {item.description}
+            </Text>
+            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginBottom: 8 }}>
+              SKU: {item.sku} {item.barcode && `• ${item.barcode}`}
+            </Text>
+            <Badge 
+              size={24}
+              style={{ 
+                backgroundColor: getStockStatusColor(stockStatus, theme),
+                alignSelf: 'flex-start'
+              }}
+            >
+              {stockStatus}
+            </Badge>
+          </View>
+          <TouchableOpacity onPress={onMenuPress}>
+            <MoreVertical size={20} color={theme.colors.onSurfaceVariant} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
+          <View style={{ flex: 1 }}>
+            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+              Location
+            </Text>
+            <Text variant="bodyMedium" style={{ fontWeight: '500' }}>
+              {item.location.zone}-{item.location.aisle}-{item.location.bay}
+            </Text>
+          </View>
+          <View style={{ flex: 1, alignItems: 'center' }}>
+            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+              Quantity
+            </Text>
+            <Text variant="bodyMedium" style={{ fontWeight: '500' }}>
+              {item.quantityOnHand}
+            </Text>
+          </View>
+          <View style={{ flex: 1, alignItems: 'flex-end' }}>
+            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+              Value
+            </Text>
+            <Text variant="bodyMedium" style={{ fontWeight: '500', color: '#34C759' }}>
+              {formatCurrency(totalValue)}
+            </Text>
+          </View>
+        </View>
+
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+            Category: {item.category}
+          </Text>
+          <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+            Updated: {formatDate(item.updatedAt)}
+          </Text>
+        </View>
+      </Card.Content>
+    </Card>
+  );
+};
 
 export default function InventoryScreen() {
   const theme = useTheme();
-  const [inventory, setInventory] = useState(mockInventoryData);
+  const { user } = useAuth();
+  const { 
+    inventory, warehouses, loading, error,
+    addInventoryItem,
+    updateInventoryItem,
+    adjustInventory,
+    scanBarcode
+  } = useWarehouse();
+
   const [searchQuery, setSearchQuery] = useState('');
-  const [refreshing, setRefreshing] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [stockFilter, setStockFilter] = useState<string>('all');
+  const [menuVisible, setMenuVisible] = useState<{ [key: string]: boolean }>({});
+  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
 
-  const categories = ['All', 'Electronics', 'Automotive', 'Medical', 'Food'];
+  // Get unique categories
+  const categories = ['all', ...Array.from(new Set(inventory.map(item => item.category)))];
 
-  const filteredInventory = inventory.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  const filteredInventory = inventory.filter((item: InventoryItem) => {
+    const matchesSearch = item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          item.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         item.location.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
-    return matchesSearch && matchesCategory;
+                         item.category.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesCategory = categoryFilter === 'all' || item.category === categoryFilter;
+    
+    const stockStatus = getStockStatus(item);
+    const matchesStock = stockFilter === 'all' || 
+                        (stockFilter === 'in_stock' && stockStatus === 'In Stock') ||
+                        (stockFilter === 'low_stock' && stockStatus === 'Low Stock') ||
+                        (stockFilter === 'out_of_stock' && stockStatus === 'Out of Stock');
+    
+    return matchesSearch && matchesCategory && matchesStock;
   });
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 2000);
+  const openMenu = (itemId: string) => {
+    setMenuVisible(prev => ({ ...prev, [itemId]: true }));
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'In Stock': return '#34C759';
-      case 'Low Stock': return '#FF9500';
-      case 'Out of Stock': return theme.colors.error;
-      default: return theme.colors.outline;
+  const closeMenu = (itemId: string) => {
+    setMenuVisible(prev => ({ ...prev, [itemId]: false }));
+  };
+
+  const handleItemPress = (item: InventoryItem) => {
+    router.push(`/(warehouse)/inventory/${item.id}`);
+  };
+
+  const handleCreateItem = () => {
+    router.push('/(warehouse)/inventory/create');
+  };
+
+  const handleAdjustQuantity = async (item: InventoryItem, adjustment: number, reason: string) => {
+    try {
+      await adjustInventory(item.id, adjustment, reason);
+      closeMenu(item.id);
+    } catch (error) {
+      console.error('Failed to adjust inventory:', error);
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'In Stock': return 'check-circle';
-      case 'Low Stock': return 'alert-circle';
-      case 'Out of Stock': return 'alert-circle';
-      default: return 'package';
-    }
+  const handleDeleteItem = async (item: InventoryItem) => {
+    console.log('Delete not implemented yet');
   };
+
+  const renderInventoryCard = ({ item }: { item: InventoryItem }) => (
+    <View>
+      <InventoryCard
+        item={item}
+        onPress={() => handleItemPress(item)}
+        onMenuPress={() => openMenu(item.id)}
+      />
+      <Menu
+        visible={menuVisible[item.id] || false}
+        onDismiss={() => closeMenu(item.id)}
+        anchor={<View />}
+        contentStyle={{ marginTop: 50 }}
+      >
+        <Menu.Item
+          onPress={() => handleAdjustQuantity(item, 1, 'Manual adjustment')}
+          title="Add Stock"
+          leadingIcon={() => <TrendingUp size={20} color={theme.colors.onSurface} />}
+        />
+        <Menu.Item
+          onPress={() => handleAdjustQuantity(item, -1, 'Manual adjustment')}
+          title="Remove Stock"
+          leadingIcon={() => <TrendingDown size={20} color={theme.colors.onSurface} />}
+        />
+        <Divider />
+        <Menu.Item
+          onPress={() => router.push(`/(warehouse)/inventory/${item.id}/edit`)}
+          title="Edit Item"
+          leadingIcon={() => <Edit size={20} color={theme.colors.onSurface} />}
+        />
+        <Menu.Item
+          onPress={() => handleDeleteItem(item)}
+          title="Delete Item"
+          leadingIcon={() => <Trash size={20} color={theme.colors.error} />}
+        />
+      </Menu>
+    </View>
+  );
+
+  // Calculate summary stats
+  const totalItems = inventory.length;
+  const totalValue = inventory.reduce((sum, item) => sum + (item.quantityOnHand * item.unitValue), 0);
+  const lowStockItems = inventory.filter(item => getStockStatus(item) === 'Low Stock').length;
+  const outOfStockItems = inventory.filter(item => getStockStatus(item) === 'Out of Stock').length;
+
+  if (loading && inventory.length === 0) {
+    return (
+      <ScreenWrapper>
+        <LoadingSpinner />
+      </ScreenWrapper>
+    );
+  }
 
   return (
     <ScreenWrapper>
       <Stack.Screen options={{ title: 'Inventory Management' }} />
       
-      <View style={{ padding: 16, backgroundColor: theme.colors.surface, borderBottomWidth: 1, borderBottomColor: theme.colors.outline }}>
-        <Heading variant="h1">Inventory</Heading>
-        <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}>
-          Warehouse inventory tracking
-        </Text>
-      </View>
+      <ScrollView style={{ flex: 1 }}>
+        <View style={{ padding: 16 }}>
+          <Heading variant="h1" style={{ marginBottom: 16 }}>
+            Inventory Management
+          </Heading>
 
-      <View style={{ padding: 16 }}>
-        {/* Search */}
-        <Searchbar
-          placeholder="Search inventory..."
-          onChangeText={setSearchQuery}
-          value={searchQuery}
-          style={{ marginBottom: 16 }}
-        />
+          {error && (
+            <Card style={{ marginBottom: 16, backgroundColor: theme.colors.errorContainer }}>
+              <Card.Content>
+                <Text style={{ color: theme.colors.onErrorContainer }}>
+                  {error}
+                </Text>
+              </Card.Content>
+            </Card>
+          )}
 
-        {/* Category Filter */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-          <View style={{ flexDirection: 'row', gap: 8, paddingRight: 16 }}>
-            {categories.map((category) => (
-              <Chip
-                key={category}
-                selected={selectedCategory === category}
-                onPress={() => setSelectedCategory(category)}
-                showSelectedOverlay
-              >
-                {category}
-              </Chip>
-            ))}
+          {/* Summary Cards */}
+          <View style={{ flexDirection: 'row', marginBottom: 16, gap: 8 }}>
+            <Card style={{ flex: 1 }}>
+              <Card.Content style={{ alignItems: 'center', paddingVertical: 12 }}>
+                <Package size={24} color={theme.colors.primary} />
+                <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}>
+                  Total Items
+                </Text>
+                <Text variant="titleMedium" style={{ fontWeight: '600' }}>
+                  {totalItems}
+                </Text>
+              </Card.Content>
+            </Card>
+            <Card style={{ flex: 1 }}>
+              <Card.Content style={{ alignItems: 'center', paddingVertical: 12 }}>
+                <BarChart size={24} color="#34C759" />
+                <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}>
+                  Total Value
+                </Text>
+                <Text variant="titleMedium" style={{ fontWeight: '600', color: '#34C759' }}>
+                  {formatCurrency(totalValue)}
+                </Text>
+              </Card.Content>
+            </Card>
+            <Card style={{ flex: 1 }}>
+              <Card.Content style={{ alignItems: 'center', paddingVertical: 12 }}>
+                <AlertCircle size={24} color="#FF9500" />
+                <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}>
+                  Alerts
+                </Text>
+                <Text variant="titleMedium" style={{ fontWeight: '600', color: '#FF9500' }}>
+                  {lowStockItems + outOfStockItems}
+                </Text>
+              </Card.Content>
+            </Card>
           </View>
-        </ScrollView>
 
-        {/* Inventory Summary */}
-        <Card style={{ marginBottom: 16 }}>
-          <Card.Content>
-            <Text variant="titleMedium" style={{ marginBottom: 12, fontWeight: 'bold' }}>
-              Inventory Summary
-            </Text>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <View style={{ alignItems: 'center' }}>
-                <Text variant="headlineSmall" style={{ fontWeight: 'bold', color: '#34C759' }}>
-                  {inventory.filter(i => i.status === 'In Stock').length}
-                </Text>
-                <Text variant="bodySmall">In Stock</Text>
-              </View>
-              <View style={{ alignItems: 'center' }}>
-                <Text variant="headlineSmall" style={{ fontWeight: 'bold', color: '#FF9500' }}>
-                  {inventory.filter(i => i.status === 'Low Stock').length}
-                </Text>
-                <Text variant="bodySmall">Low Stock</Text>
-              </View>
-              <View style={{ alignItems: 'center' }}>
-                <Text variant="headlineSmall" style={{ fontWeight: 'bold', color: theme.colors.error }}>
-                  {inventory.filter(i => i.status === 'Out of Stock').length}
-                </Text>
-                <Text variant="bodySmall">Out of Stock</Text>
-              </View>
+          <Searchbar
+            placeholder="Search inventory..."
+            onChangeText={setSearchQuery}
+            value={searchQuery}
+            style={{ marginBottom: 16 }}
+          />
+
+          {/* Category Filter */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {categories.map((category) => (
+                <Chip
+                  key={category}
+                  selected={categoryFilter === category}
+                  onPress={() => setCategoryFilter(category)}
+                  mode={categoryFilter === category ? 'flat' : 'outlined'}
+                  style={{ marginRight: 8 }}
+                >
+                  {category === 'all' ? 'All Categories' : category}
+                </Chip>
+              ))}
             </View>
-          </Card.Content>
-        </Card>
-      </View>
+          </ScrollView>
 
-      {/* Inventory List */}
-      <ScrollView 
-        style={{ flex: 1, paddingHorizontal: 16 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      >
-        {filteredInventory.map((item) => (
-          <Card key={item.id} style={{ marginBottom: 12 }}>
-            <Card.Content>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                <View style={{ flex: 1 }}>
-                  <Text variant="titleMedium" style={{ fontWeight: 'bold', marginBottom: 4 }}>
-                    {item.name}
-                  </Text>
-                  <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-                    SKU: {item.sku}
-                  </Text>
-                </View>
-                <View style={{
-                  backgroundColor: getStatusColor(item.status),
-                  paddingHorizontal: 8,
-                  paddingVertical: 4,
-                  borderRadius: 12,
-                  alignItems: 'center'
-                }}>
-                  <Text variant="labelSmall" style={{ color: 'white', fontWeight: 'bold' }}>
-                    {item.status}
-                  </Text>
-                </View>
-              </View>
+          {/* Stock Status Filter */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {[
+                { key: 'all', label: 'All Stock' },
+                { key: 'in_stock', label: 'In Stock' },
+                { key: 'low_stock', label: 'Low Stock' },
+                { key: 'out_of_stock', label: 'Out of Stock' }
+              ].map((filter) => (
+                <Chip
+                  key={filter.key}
+                  selected={stockFilter === filter.key}
+                  onPress={() => setStockFilter(filter.key)}
+                  mode={stockFilter === filter.key ? 'flat' : 'outlined'}
+                  style={{ marginRight: 8 }}
+                >
+                  {filter.label}
+                </Chip>
+              ))}
+            </View>
+          </ScrollView>
 
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 }}>
-                <View>
-                  <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                    Quantity
-                  </Text>
-                  <Text variant="bodyMedium" style={{ fontWeight: 'bold' }}>
-                    {item.quantity} units
-                  </Text>
-                </View>
-                <View>
-                  <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                    Location
-                  </Text>
-                  <Text variant="bodyMedium" style={{ fontWeight: 'bold' }}>
-                    {item.location}
-                  </Text>
-                </View>
-                <View>
-                  <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                    Value
-                  </Text>
-                  <Text variant="bodyMedium" style={{ fontWeight: 'bold' }}>
-                    {item.value}
-                  </Text>
-                </View>
-              </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <Text variant="titleMedium">
+              {filteredInventory.length} Item{filteredInventory.length !== 1 ? 's' : ''}
+            </Text>
+          </View>
 
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
-                <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                  Updated: {item.lastUpdated}
+          <FlatList
+            data={filteredInventory}
+            renderItem={renderInventoryCard}
+            keyExtractor={(item) => item.id}
+            showsVerticalScrollIndicator={false}
+            scrollEnabled={false}
+            ListEmptyComponent={() => (
+              <Card style={{ padding: 32, alignItems: 'center' }}>
+                <Package size={48} color={theme.colors.outline} />
+                <Text variant="headlineSmall" style={{ marginTop: 16, marginBottom: 8 }}>
+                  No inventory found
                 </Text>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <Button mode="outlined" compact onPress={() => {}}>
-                    Edit
+                <Text variant="bodyMedium" style={{ textAlign: 'center', color: theme.colors.onSurfaceVariant }}>
+                  {searchQuery || categoryFilter !== 'all' || stockFilter !== 'all'
+                    ? 'Try adjusting your search or filters'
+                    : 'Add your first inventory item to get started'
+                  }
+                </Text>
+                {!searchQuery && categoryFilter === 'all' && stockFilter === 'all' && (
+                  <Button
+                    mode="contained"
+                    onPress={handleCreateItem}
+                    style={{ marginTop: 16 }}
+                    icon="plus"
+                  >
+                    Add Item
                   </Button>
-                  <Button mode="contained" compact onPress={() => {}}>
-                    Move
-                  </Button>
-                </View>
-              </View>
-            </Card.Content>
-          </Card>
-        ))}
+                )}
+              </Card>
+            )}
+          />
+        </View>
       </ScrollView>
 
-      {/* Floating Action Button */}
-      <View style={{ position: 'absolute', bottom: 24, right: 24 }}>
-        <Button
-          mode="contained"
-          icon="plus"
-          onPress={() => {}}
-          style={{ borderRadius: 28 }}
-        >
-          Add Item
-        </Button>
-      </View>
+      <FAB
+        icon="plus"
+        style={{
+          position: 'absolute',
+          margin: 16,
+          right: 0,
+          bottom: 0,
+        }}
+        onPress={handleCreateItem}
+      />
     </ScreenWrapper>
   );
 }

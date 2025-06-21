@@ -8,6 +8,12 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from '../state/authContext';
 import { AppThemeProvider } from '../theme/ThemeContext';
+// import { FleetProvider } from '../state/fleetContext';
+// import { FleetTrackingProvider } from '../state/fleetTrackingContext';
+import { LoadProvider } from '../state/loadContext';
+import { ComplianceProvider } from '../state/complianceContext';
+import { WarehouseProvider } from '../state/warehouseContext';
+import { QuickAccessProvider } from '../state/quickAccessContext';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -50,12 +56,28 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <AuthProvider>
           <AppThemeProvider>
-            <Stack>
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-              <Stack.Screen name="(admin)" options={{ headerShown: false }} />
-              <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-            </Stack>
+            {/* <FleetProvider>
+              <FleetTrackingProvider> */}
+                <LoadProvider>
+                  <ComplianceProvider>
+                    <WarehouseProvider>
+                      <QuickAccessProvider>
+                        <Stack>
+                          <Stack.Screen name="debug" options={{ headerShown: false }} />
+                          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                          <Stack.Screen name="(admin)" options={{ headerShown: false }} />
+                          <Stack.Screen name="(driver)" options={{ headerShown: false }} />
+                          <Stack.Screen name="(dispatcher)" options={{ headerShown: false }} />
+                          <Stack.Screen name="(warehouse)" options={{ headerShown: false }} />
+                          <Stack.Screen name="(customer)" options={{ headerShown: false }} />
+                        </Stack>
+                      </QuickAccessProvider>
+                    </WarehouseProvider>
+                  </ComplianceProvider>
+                </LoadProvider>
+              {/* </FleetTrackingProvider>
+            </FleetProvider> */}
           </AppThemeProvider>
         </AuthProvider>
       </SafeAreaProvider>

@@ -3,437 +3,445 @@ import React, { useState, useCallback } from 'react';
 import { FlatList, View, RefreshControl, ScrollView, Dimensions } from 'react-native';
 import { Stack, useRouter, useFocusEffect } from 'expo-router';
 import { useAuth } from '../../../state/authContext';
+import { useCompliance } from '../../../state/complianceContext';
 import ScreenWrapper from '../../../components/ScreenWrapper';
 import { useTheme } from '../../../theme/ThemeContext';
 import Heading from '../../../components/typography/Heading';
-import { Text, Card, Button, Chip, Searchbar, ProgressBar, Badge } from 'react-native-paper';
-import { FileText, AlertTriangle, CheckCircle, XCircle, Clock, MapPin, Truck, User, Calendar } from '../../../utils/icons';
+import { Text, Card, Button, Chip, Searchbar, ProgressBar, Badge, FAB, Menu, Divider } from 'react-native-paper';
+import { FileText, AlertTriangle, CheckCircle, XCircle, Clock, MapPin, Truck, User, Calendar, Plus, MoreVertical, Edit, Trash, Calculator } from '../../../utils/icons';
 import LoadingSpinner from '../../../components/LoadingSpinner';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import { ConditionalMapView as MapView, ConditionalMarker as Marker } from '../../../components/MapView';
+import { ComplianceRecord } from '../../../types';
 
 const { width } = Dimensions.get('window');
 
-// Mock compliance data
-const mockComplianceData = [
-  {
-    id: 'COMP001',
-    driverName: 'John Smith',
-    driverId: 'DRV001',
-    vehicleNumber: 'TRK-001',
-    violationType: 'HOS_VIOLATION',
-    severity: 'HIGH',
-    description: 'Driver exceeded 11-hour driving limit by 45 minutes',
-    location: { latitude: 32.7767, longitude: -96.7970, address: 'Dallas, TX' },
-    timestamp: '2025-06-16T14:30:00Z',
-    status: 'PENDING',
-    resolvedAt: null,
-    fine: 500,
-    notes: 'Driver was unaware of overtime due to traffic delays'
-  },
-  {
-    id: 'COMP002',
-    driverName: 'Sarah Johnson',
-    driverId: 'DRV002',
-    vehicleNumber: 'TRK-003',
-    violationType: 'SPEED_VIOLATION',
-    severity: 'MEDIUM',
-    description: 'Speed exceeded limit by 8 mph in commercial zone',
-    location: { latitude: 29.7604, longitude: -95.3698, address: 'Houston, TX' },
-    timestamp: '2025-06-15T11:15:00Z',
-    status: 'RESOLVED',
-    resolvedAt: '2025-06-16T09:00:00Z',
-    fine: 250,
-    notes: 'Driver completed safety training'
-  },
-  {
-    id: 'COMP003',
-    driverName: 'Mike Chen',
-    driverId: 'DRV003',
-    vehicleNumber: 'TRK-005',
-    violationType: 'INSPECTION_OVERDUE',
-    severity: 'LOW',
-    description: 'Vehicle inspection overdue by 3 days',
-    location: { latitude: 30.2672, longitude: -97.7431, address: 'Austin, TX' },
-    timestamp: '2025-06-14T08:00:00Z',
-    status: 'IN_PROGRESS',
-    resolvedAt: null,
-    fine: 100,
-    notes: 'Inspection scheduled for tomorrow'
+const getSeverityColor = (severity: string, theme: any) => {
+  switch (severity) {
+    case 'CRITICAL':
+      return theme.colors.error;
+    case 'HIGH':
+      return '#FF6B6B';
+    case 'MEDIUM':
+      return '#FFB366';
+    case 'LOW':
+      return '#74B9FF';
+    default:
+      return theme.colors.outline;
   }
-];
-
-const complianceStats = {
-  totalViolations: 15,
-  pendingViolations: 6,
-  resolvedViolations: 9,
-  totalFines: 2750,
-  complianceScore: 87.5
 };
 
-export default function AdminComplianceScreen() {
-  const { theme } = useTheme();
-  const router = useRouter();
-  const { user } = useAuth();
-  const [violations, setViolations] = useState(mockComplianceData);
-  const [filteredViolations, setFilteredViolations] = useState(mockComplianceData);
-  const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string | null>(null);
-  const [showMap, setShowMap] = useState(false);
+const getStatusColor = (status: string, theme: any) => {
+  switch (status) {
+    case 'ACTIVE':
+    case 'COMPLIANT':
+      return '#34C759';
+    case 'EXPIRING_SOON':
+      return '#FFB366';
+    case 'EXPIRED':
+    case 'NON_COMPLIANT':
+      return theme.colors.error;
+    case 'PENDING':
+      return '#74B9FF';
+    default:
+      return theme.colors.outline;
+  }
+};
 
-  const fetchViolations = useCallback(async () => {
-    setLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setViolations(mockComplianceData);
-    setFilteredViolations(mockComplianceData);
-    setLoading(false);
-    setRefreshing(false);
-  }, []);
+const formatDate = (date: Date | string) => {
+  const d = new Date(date);
+  return d.toLocaleDateString('en-US', { 
+    month: 'short', 
+    day: 'numeric', 
+    year: 'numeric' 
+  });
+};
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchViolations();
-    }, [fetchViolations])
-  );
+const formatDateTime = (date: Date | string) => {
+  const d = new Date(date);
+  return d.toLocaleDateString('en-US', { 
+    month: 'short', 
+    day: 'numeric', 
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  });
+};
 
-  const handleRefresh = () => {
-    setRefreshing(true);
-    fetchViolations();
-  };
+interface ComplianceCardProps {
+  record: ComplianceRecord;
+  onPress: () => void;
+  onMenuPress: () => void;
+}
 
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-    filterViolations(query, statusFilter);
-  };
-
-  const handleStatusFilter = (status: string | null) => {
-    setStatusFilter(status);
-    filterViolations(searchQuery, status);
-  };
-
-  const filterViolations = (query: string, status: string | null) => {
-    let filtered = violations;
-    
-    if (query) {
-      filtered = filtered.filter(violation => 
-        violation.driverName.toLowerCase().includes(query.toLowerCase()) ||
-        violation.vehicleNumber.toLowerCase().includes(query.toLowerCase()) ||
-        violation.description.toLowerCase().includes(query.toLowerCase())
-      );
-    }
-    
-    if (status) {
-      filtered = filtered.filter(violation => violation.status === status);
-    }
-    
-    setFilteredViolations(filtered);
-  };
-
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case 'HIGH':
-        return theme.colors.error;
-      case 'MEDIUM':
-        return '#FF9500';
-      case 'LOW':
-        return '#34C759';
-      default:
-        return theme.colors.outline;
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'PENDING':
-        return '#FF9500';
-      case 'IN_PROGRESS':
-        return theme.colors.primary;
-      case 'RESOLVED':
-        return '#34C759';
-      default:
-        return theme.colors.outline;
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const renderStatsCard = () => (
-    <Card style={{ margin: 8, backgroundColor: theme.colors.surface }}>
-      <Card.Content style={{ padding: 16 }}>
-        <Heading variant="h3" style={{ marginBottom: 16 }}>Compliance Overview</Heading>
-        
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
-          <View style={{ alignItems: 'center', flex: 1 }}>
-            <Text variant="headlineSmall" style={{ color: theme.colors.primary, fontWeight: '600' }}>
-              {complianceStats.totalViolations}
-            </Text>
-            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-              Total Violations
-            </Text>
-          </View>
-          <View style={{ alignItems: 'center', flex: 1 }}>
-            <Text variant="headlineSmall" style={{ color: '#FF9500', fontWeight: '600' }}>
-              {complianceStats.pendingViolations}
-            </Text>
-            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-              Pending
-            </Text>
-          </View>
-          <View style={{ alignItems: 'center', flex: 1 }}>
-            <Text variant="headlineSmall" style={{ color: '#34C759', fontWeight: '600' }}>
-              {complianceStats.resolvedViolations}
-            </Text>
-            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-              Resolved
-            </Text>
-          </View>
-        </View>
-
-        <View style={{ marginBottom: 16 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-            <Text variant="bodyMedium">Compliance Score</Text>
-            <Text variant="bodyMedium" style={{ fontWeight: '600' }}>
-              {complianceStats.complianceScore}%
-            </Text>
-          </View>
-          <ProgressBar 
-            progress={complianceStats.complianceScore / 100} 
-            color={complianceStats.complianceScore > 80 ? '#34C759' : complianceStats.complianceScore > 60 ? '#FF9500' : theme.colors.error}
-            style={{ height: 8, borderRadius: 4 }}
-          />
-        </View>
-
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Text variant="bodyMedium">Total Fines: <Text style={{ fontWeight: '600', color: theme.colors.error }}>${complianceStats.totalFines.toLocaleString()}</Text></Text>
-          <Button 
-            mode="outlined" 
-            compact
-            onPress={() => setShowMap(!showMap)}
-            icon={() => <MapPin size={16} color={theme.colors.primary} />}
-          >
-            {showMap ? 'Hide Map' : 'Show Map'}
-          </Button>
-        </View>
-      </Card.Content>
-    </Card>
-  );
-
-  const renderMapView = () => {
-    if (!showMap) return null;
-    
-    return (
-      <Card style={{ margin: 8, backgroundColor: theme.colors.surface }}>
-        <Card.Content style={{ padding: 0 }}>
-          <View style={{ height: 300, borderRadius: 12, overflow: 'hidden' }}>
-            <MapView
-              provider={PROVIDER_GOOGLE}
-              style={{ flex: 1 }}
-              initialRegion={{
-                latitude: 31.0,
-                longitude: -97.0,
-                latitudeDelta: 4.0,
-                longitudeDelta: 4.0,
-              }}
-              showsUserLocation={false}
-              showsMyLocationButton={false}
-            >
-              {filteredViolations.map((violation) => (
-                <Marker
-                  key={violation.id}
-                  coordinate={violation.location}
-                  title={violation.violationType.replace('_', ' ')}
-                  description={violation.description}
-                  pinColor={getSeverityColor(violation.severity)}
-                />
-              ))}
-            </MapView>
-          </View>
-        </Card.Content>
-      </Card>
-    );
-  };
-
-  const renderViolation = ({ item }: { item: any }) => (
-    <Card style={{ margin: 8, backgroundColor: theme.colors.surface }}>
-      <Card.Content style={{ padding: 16 }}>
+const ComplianceCard: React.FC<ComplianceCardProps> = ({ record, onPress, onMenuPress }) => {
+  const theme = useTheme();
+  const severityColor = getSeverityColor(record.type, theme); // Using type as severity for now
+  const statusColor = getStatusColor(record.status, theme);
+  
+  return (
+    <Card style={{ marginBottom: 16 }} onPress={onPress}>
+      <Card.Content>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
           <View style={{ flex: 1 }}>
             <Text variant="titleMedium" style={{ fontWeight: '600', marginBottom: 4 }}>
-              {item.violationType.replace('_', ' ')}
+              {record.type.replace(/_/g, ' ')}
             </Text>
-            <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-              {item.description}
+            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginBottom: 8 }}>
+              Entity: {record.entityType} • ID: {record.entityId}
             </Text>
-          </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Chip 
-              mode="outlined" 
-              textStyle={{ color: getSeverityColor(item.severity), fontSize: 12 }}
+            <Badge 
+              size={24}
               style={{ 
-                borderColor: getSeverityColor(item.severity),
-                marginBottom: 4
+                backgroundColor: statusColor,
+                alignSelf: 'flex-start'
               }}
             >
-              {item.severity}
-            </Chip>
-            <Chip 
-              mode="outlined" 
-              textStyle={{ color: getStatusColor(item.status), fontSize: 12 }}
-              style={{ 
-                borderColor: getStatusColor(item.status)
-              }}
-            >
-              {item.status.replace('_', ' ')}
-            </Chip>
+              {record.status.replace(/_/g, ' ')}
+            </Badge>
           </View>
+          <Button mode="text" onPress={onMenuPress} compact>
+            <MoreVertical size={20} color={theme.colors.onSurfaceVariant} />
+          </Button>
         </View>
 
-        <View style={{ marginBottom: 12 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-            <User size={16} color={theme.colors.onSurfaceVariant} />
-            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginLeft: 8 }}>
-              {item.driverName} • {item.vehicleNumber}
-            </Text>
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-            <MapPin size={16} color={theme.colors.onSurfaceVariant} />
-            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginLeft: 8 }}>
-              {item.location.address}
-            </Text>
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Calendar size={16} color={theme.colors.onSurfaceVariant} />
-            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginLeft: 8 }}>
-              {formatDate(item.timestamp)}
-            </Text>
-          </View>
-        </View>
-
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <Text variant="bodyMedium" style={{ fontWeight: '600', color: theme.colors.error }}>
-            Fine: ${item.fine}
-          </Text>
-          {item.resolvedAt && (
-            <Text variant="bodySmall" style={{ color: '#34C759' }}>
-              Resolved: {formatDate(item.resolvedAt)}
-            </Text>
-          )}
-        </View>
-
-        {item.notes && (
-          <View style={{ backgroundColor: theme.colors.surfaceVariant, padding: 12, borderRadius: 8, marginBottom: 12 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
+          <View style={{ flex: 1 }}>
             <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-              Notes: {item.notes}
+              Issue Date
+            </Text>
+            <Text variant="bodyMedium" style={{ fontWeight: '500' }}>
+              {record.issuedDate ? formatDate(record.issuedDate) : 'N/A'}
             </Text>
           </View>
-        )}
-
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <Button 
-            mode="outlined" 
-            compact
-            onPress={() => router.push(`/admin/compliance/${item.id}/edit`)}
-            style={{ flex: 1 }}
-          >
-            Edit
-          </Button>
-          <Button 
-            mode="contained" 
-            compact
-            onPress={() => router.push(`/admin/compliance/${item.id}/details`)}
-            style={{ flex: 1 }}
-          >
-            Details
-          </Button>
+          <View style={{ flex: 1, alignItems: 'center' }}>
+            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+              Expiry Date
+            </Text>
+            <Text variant="bodyMedium" style={{ fontWeight: '500' }}>
+              {record.expiryDate ? formatDate(record.expiryDate) : 'N/A'}
+            </Text>
+          </View>
+          <View style={{ flex: 1, alignItems: 'flex-end' }}>
+            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+              Updated
+            </Text>
+            <Text variant="bodyMedium" style={{ fontWeight: '500' }}>
+              {formatDate(record.updatedAt)}
+            </Text>
+          </View>
         </View>
+
+        {record.description && (
+          <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginTop: 8 }}>
+            {record.description}
+          </Text>
+        )}
       </Card.Content>
     </Card>
   );
+};
 
-  if (loading && !refreshing) {
-    return <LoadingSpinner />;
+export default function AdminComplianceScreen() {
+  const theme = useTheme();
+  const router = useRouter();
+  const { user } = useAuth();
+  const { 
+    complianceRecords, loading, error,
+    addComplianceRecord,
+    updateComplianceRecord,
+    deleteComplianceRecord,
+    checkExpiringSoon
+  } = useCompliance();
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [menuVisible, setMenuVisible] = useState<{ [key: string]: boolean }>({});
+
+  // Get unique types and statuses
+  const types = ['all', ...Array.from(new Set(complianceRecords.map(record => record.type)))];
+  const statuses = ['all', ...Array.from(new Set(complianceRecords.map(record => record.status)))];
+
+  const filteredRecords = complianceRecords.filter((record: ComplianceRecord) => {
+    const matchesSearch = record.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         record.entityId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         record.entityType.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         (record.description && record.description.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    const matchesStatus = statusFilter === 'all' || record.status === statusFilter;
+    const matchesType = typeFilter === 'all' || record.type === typeFilter;
+    
+    return matchesSearch && matchesStatus && matchesType;
+  });
+
+  const openMenu = (recordId: string) => {
+    setMenuVisible(prev => ({ ...prev, [recordId]: true }));
+  };
+
+  const closeMenu = (recordId: string) => {
+    setMenuVisible(prev => ({ ...prev, [recordId]: false }));
+  };
+
+  const handleRecordPress = (record: ComplianceRecord) => {
+    router.push(`/(admin)/compliance/${record.id}`);
+  };
+
+  const handleCreateRecord = () => {
+    router.push('/(admin)/compliance/create');
+  };
+
+  const handleUpdateStatus = async (record: ComplianceRecord, newStatus: string) => {
+    try {
+      await updateComplianceRecord(record.id, { status: newStatus as any });
+      closeMenu(record.id);
+    } catch (error) {
+      console.error('Failed to update compliance record:', error);
+    }
+  };
+
+  const handleDeleteRecord = async (record: ComplianceRecord) => {
+    try {
+      await deleteComplianceRecord(record.id);
+      closeMenu(record.id);
+    } catch (error) {
+      console.error('Failed to delete compliance record:', error);
+    }
+  };
+
+  const renderComplianceCard = ({ item }: { item: ComplianceRecord }) => (
+    <View>
+      <ComplianceCard
+        record={item}
+        onPress={() => handleRecordPress(item)}
+        onMenuPress={() => openMenu(item.id)}
+      />
+      <Menu
+        visible={menuVisible[item.id] || false}
+        onDismiss={() => closeMenu(item.id)}
+        anchor={<View />}
+        contentStyle={{ marginTop: 50 }}
+      >
+        <Menu.Item
+          onPress={() => handleUpdateStatus(item, 'COMPLIANT')}
+          title="Mark Compliant"
+          leadingIcon={() => <CheckCircle size={20} color="#34C759" />}
+        />
+        <Menu.Item
+          onPress={() => handleUpdateStatus(item, 'NON_COMPLIANT')}
+          title="Mark Non-Compliant"
+          leadingIcon={() => <XCircle size={20} color={theme.colors.error} />}
+        />
+        <Divider />
+        <Menu.Item
+          onPress={() => router.push(`/(admin)/compliance/${item.id}/edit`)}
+          title="Edit Record"
+          leadingIcon={() => <Edit size={20} color={theme.colors.onSurface} />}
+        />
+        <Menu.Item
+          onPress={() => handleDeleteRecord(item)}
+          title="Delete Record"
+          leadingIcon={() => <Trash size={20} color={theme.colors.error} />}
+        />
+      </Menu>
+    </View>
+  );
+
+  // Calculate summary stats
+  const totalRecords = complianceRecords.length;
+  const activeRecords = complianceRecords.filter(r => r.status === 'compliant' || r.status === 'pending').length;
+  const expiringRecords = checkExpiringSoon(30).length; // Records expiring in 30 days
+  const nonCompliantRecords = complianceRecords.filter(r => r.status === 'non_compliant' || r.status === 'expired').length;
+
+  if (loading && complianceRecords.length === 0) {
+    return (
+      <ScreenWrapper>
+        <LoadingSpinner />
+      </ScreenWrapper>
+    );
   }
 
   return (
     <ScreenWrapper>
-      <Stack.Screen options={{ title: 'Compliance' }} />
+      <Stack.Screen options={{ title: 'Compliance & Safety' }} />
       
-      <View style={{ padding: 16, backgroundColor: theme.colors.surface, borderBottomWidth: 1, borderBottomColor: theme.colors.outline }}>
-        <Heading variant="h1">Compliance</Heading>
-        <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, marginTop: 4, marginBottom: 16 }}>
-          Monitor violations and compliance metrics
-        </Text>
-        
-        <Searchbar
-          placeholder="Search violations..."
-          onChangeText={handleSearch}
-          value={searchQuery}
-          style={{ backgroundColor: theme.colors.surfaceVariant, marginBottom: 12 }}
-        />
+      <ScrollView style={{ flex: 1 }}>
+        <View style={{ padding: 16 }}>
+          <Heading variant="h1" style={{ marginBottom: 16 }}>
+            Compliance & Safety
+          </Heading>
 
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <Button 
-            mode={statusFilter === null ? "contained" : "outlined"}
-            compact
-            onPress={() => handleStatusFilter(null)}
-            style={{ flex: 1 }}
-          >
-            All
-          </Button>
-          <Button 
-            mode={statusFilter === 'PENDING' ? "contained" : "outlined"}
-            compact
-            onPress={() => handleStatusFilter('PENDING')}
-            style={{ flex: 1 }}
-          >
-            Pending
-          </Button>
-          <Button 
-            mode={statusFilter === 'RESOLVED' ? "contained" : "outlined"}
-            compact
-            onPress={() => handleStatusFilter('RESOLVED')}
-            style={{ flex: 1 }}
-          >
-            Resolved
-          </Button>
-        </View>
-      </View>
+          {error && (
+            <Card style={{ marginBottom: 16, backgroundColor: theme.colors.errorContainer }}>
+              <Card.Content>
+                <Text style={{ color: theme.colors.onErrorContainer }}>
+                  {error}
+                </Text>
+              </Card.Content>
+            </Card>
+          )}
 
-      <FlatList
-        data={filteredViolations}
-        keyExtractor={(item) => item.id}
-        renderItem={renderViolation}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-        }
-        ListHeaderComponent={
-          <>
-            {renderStatsCard()}
-            {renderMapView()}
-          </>
-        }
-        contentContainerStyle={{ paddingVertical: 8 }}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={{ padding: 32, alignItems: 'center' }}>
-            <FileText size={48} color={theme.colors.onSurfaceVariant} />
-            <Text variant="bodyLarge" style={{ marginTop: 16, textAlign: 'center' }}>
-              No violations found
-            </Text>
-            <Text variant="bodyMedium" style={{ marginTop: 8, textAlign: 'center', color: theme.colors.onSurfaceVariant }}>
-              {searchQuery ? 'Try adjusting your search' : 'Great compliance record!'}
+          {/* Summary Cards */}
+          <View style={{ marginBottom: 16, gap: 8 }}>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <Card style={{ flex: 1 }}>
+                <Card.Content style={{ alignItems: 'center', paddingVertical: 12 }}>
+                  <FileText size={24} color={theme.colors.primary} />
+                  <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}>
+                    Total Records
+                  </Text>
+                  <Text variant="titleMedium" style={{ fontWeight: '600' }}>
+                    {totalRecords}
+                  </Text>
+                </Card.Content>
+              </Card>
+              <Card style={{ flex: 1 }}>
+                <Card.Content style={{ alignItems: 'center', paddingVertical: 12 }}>
+                  <CheckCircle size={24} color="#34C759" />
+                  <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}>
+                    Compliant
+                  </Text>
+                  <Text variant="titleMedium" style={{ fontWeight: '600', color: '#34C759' }}>
+                    {activeRecords}
+                  </Text>
+                </Card.Content>
+              </Card>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <Card style={{ flex: 1 }}>
+                <Card.Content style={{ alignItems: 'center', paddingVertical: 12 }}>
+                  <Clock size={24} color="#FFB366" />
+                  <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}>
+                    Expiring Soon
+                  </Text>
+                  <Text variant="titleMedium" style={{ fontWeight: '600', color: '#FFB366' }}>
+                    {expiringRecords}
+                  </Text>
+                </Card.Content>
+              </Card>
+              <Card style={{ flex: 1 }}>
+                <Card.Content style={{ alignItems: 'center', paddingVertical: 12 }}>
+                  <AlertTriangle size={24} color={theme.colors.error} />
+                  <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}>
+                    Non-Compliant
+                  </Text>
+                  <Text variant="titleMedium" style={{ fontWeight: '600', color: theme.colors.error }}>
+                    {nonCompliantRecords}
+                  </Text>
+                </Card.Content>
+              </Card>
+            </View>
+          </View>
+
+          {/* Quick Actions */}
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+            <Button
+              mode="outlined"
+              onPress={() => router.push('/(admin)/compliance/permits')}
+              style={{ flex: 1 }}
+              icon={() => <FileText size={18} color={theme.colors.primary} />}
+            >
+              Permit Renewals
+            </Button>
+            <Button
+              mode="outlined"
+              onPress={() => router.push('/(admin)/compliance/ifta')}
+              style={{ flex: 1 }}
+              icon={() => <Calculator size={18} color={theme.colors.primary} />}
+            >
+              IFTA Reports
+            </Button>
+          </View>
+
+          <Searchbar
+            placeholder="Search compliance records..."
+            onChangeText={setSearchQuery}
+            value={searchQuery}
+            style={{ marginBottom: 16 }}
+          />
+
+          {/* Type Filter */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {types.map((type) => (
+                <Chip
+                  key={type}
+                  selected={typeFilter === type}
+                  onPress={() => setTypeFilter(type)}
+                  mode={typeFilter === type ? 'flat' : 'outlined'}
+                  style={{ marginRight: 8 }}
+                >
+                  {type === 'all' ? 'All Types' : type.replace(/_/g, ' ')}
+                </Chip>
+              ))}
+            </View>
+          </ScrollView>
+
+          {/* Status Filter */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {statuses.map((status) => (
+                <Chip
+                  key={status}
+                  selected={statusFilter === status}
+                  onPress={() => setStatusFilter(status)}
+                  mode={statusFilter === status ? 'flat' : 'outlined'}
+                  style={{ marginRight: 8 }}
+                >
+                  {status === 'all' ? 'All Statuses' : status.replace(/_/g, ' ')}
+                </Chip>
+              ))}
+            </View>
+          </ScrollView>
+
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <Text variant="titleMedium">
+              {filteredRecords.length} Record{filteredRecords.length !== 1 ? 's' : ''}
             </Text>
           </View>
-        }
+
+          <FlatList
+            data={filteredRecords}
+            renderItem={renderComplianceCard}
+            keyExtractor={(item) => item.id}
+            showsVerticalScrollIndicator={false}
+            scrollEnabled={false}
+            ListEmptyComponent={() => (
+              <Card style={{ padding: 32, alignItems: 'center' }}>
+                <FileText size={48} color={theme.colors.outline} />
+                <Text variant="headlineSmall" style={{ marginTop: 16, marginBottom: 8 }}>
+                  No compliance records found
+                </Text>
+                <Text variant="bodyMedium" style={{ textAlign: 'center', color: theme.colors.onSurfaceVariant }}>
+                  {searchQuery || statusFilter !== 'all' || typeFilter !== 'all'
+                    ? 'Try adjusting your search or filters'
+                    : 'Add your first compliance record to get started'
+                  }
+                </Text>
+                {!searchQuery && statusFilter === 'all' && typeFilter === 'all' && (
+                  <Button
+                    mode="contained"
+                    onPress={handleCreateRecord}
+                    style={{ marginTop: 16 }}
+                    icon="plus"
+                  >
+                    Add Record
+                  </Button>
+                )}
+              </Card>
+            )}
+          />
+        </View>
+      </ScrollView>
+
+      <FAB
+        icon="plus"
+        style={{
+          position: 'absolute',
+          margin: 16,
+          right: 0,
+          bottom: 0,
+        }}
+        onPress={handleCreateRecord}
       />
     </ScreenWrapper>
   );
